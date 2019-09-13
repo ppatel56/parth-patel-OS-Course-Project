@@ -3,8 +3,6 @@
 #include "setup.h"
 
 
-void printQueue(Queue *q);
-
 int main(){
     puts("String 1/5");
     Event *event1 = initializeEvent(10,0,0);
@@ -24,7 +22,7 @@ int main(){
     return 0;
 }
 
-
+//maybe do random time for arrival time
 
 //create head and tail variables
 //make a head for each of the queues: priority_queue, cpu_queue, disk1_queue, disk2_queue
@@ -33,11 +31,18 @@ int main(){
 
 //Bubble Sort or some other sorting method for the
 //priority queue when adding an event/process
+/*
+*Make first initial event and final event->status = FIN_STATE
+*After the initial and final events, do random time 
+*/
 Event *initializeEvent(int eventTime, int eventProcessID, int eventStatus){
     Event *newEvent = (Event *)malloc(sizeof(Event));
+    eventStatus = EVENT_ARRIVAL;
     newEvent->time = eventTime;
     newEvent->processID = eventProcessID;
     newEvent->status = eventStatus;
+    eventProcessID++;
+    return newEvent;
 }
 
 Queue *initializeQueue(){
@@ -138,10 +143,6 @@ void printQueue(Queue *queue){
     }
 }
 
-// free all the memory for the events in the queue and the queue itself
-void terminateQueue(Queue *queue){
-    if(queue->size != 0){
-        free(popQueue(queue));
-    }
-    free(queue);
+int isEmpty(Queue *queue){
+    return(queue->size ==0);
 }

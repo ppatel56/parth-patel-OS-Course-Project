@@ -22,7 +22,7 @@ int main(){
     printf("INPUT TIME: %d\nFINAL TIME: %d\nARRIVE MIN: %d\nARRIVE MAX %d\n",INITIAL_TIME,FINAL_TIME,ARRIVE_MIN,ARRIVE_MAX);
     printf("QUIT PROB: %.1f\nCPU MIN: %d\nCPU MAX: %d\nDISK1 MIN: %d\nDISK1 MAX: %d\n",QUIT_PROB,CPU_MIN,CPU_MAX,DISK1_MIN,DISK1_MAX);
     printf("DISK2 MIN: %d\nDISK2 MAX: %d\n",DISK2_MIN,DISK2_MAX);
-    
+
     return 0;
 }
 
