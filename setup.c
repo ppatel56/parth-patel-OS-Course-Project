@@ -9,14 +9,16 @@ int main(){
     puts("String 1/5");
     Event *event1 = initializeEvent(10,0,0);
     puts("String 2/5");
-    Event *event2 = initializeEvent(20,1,0);
-
+    Event *event2 = initializeEvent(8,1,0);
+    Event *event3 = initializeEvent(9,2,0);
     puts("String 3/5");
     Queue *eventQueue = initializeQueue();
     //eventQueue->size = 5;
-    pushQueue(eventQueue, event1);
-    pushQueue(eventQueue, event2);
+    pushPriorityQueue(eventQueue, event1);
+    pushPriorityQueue(eventQueue, event2);
+    pushPriorityQueue(eventQueue, event3);
     puts("String 4/5");
+    printQueue(eventQueue);
     //printQueue(eventQueue);
     puts("String 5/5");
     return 0;
@@ -45,7 +47,7 @@ Queue *initializeQueue(){
     }*/
     queue->size = 0;
     queue->head = NULL;
-    //queue->tail = NULL;
+    
     return queue;
 }
 
@@ -69,8 +71,9 @@ void pushPriorityQueue(Queue *queue, Event *newEvent){
         }
         else{
             //int i = 0;
-            int i;
-            for(i = 0; i < queue->size-1; i++){
+            int i =0;
+            //for(i = 0; i < queue->size-1; i++){
+            while(i<queue->size-1){
                 // if the new event's time is between the current event's time and some 'next event' node's time
                 // make the 'next event' a node to new event, and then make new event the next node to current event
                 if(newEvent->time >= currentEvent->time && newEvent->time <= currentEvent->nextPointer->time){
@@ -80,7 +83,7 @@ void pushPriorityQueue(Queue *queue, Event *newEvent){
                 }
                 // if no position is found during the iteration then assign next node to current event
                 currentEvent = currentEvent->nextPointer;
-                //i++;
+                i++;
             }
         }
         //queue->size++;
@@ -126,12 +129,19 @@ Event *peek(Queue *queue){
     return queue->head;
 }
 
-
-
 void printQueue(Queue *queue){
     int i;
     for(i=0; i<queue->size; i++){
-        printf("PID: %d TIME: %d\n", queue->head->processID, queue->head->time);
-        popQueue(queue);
+        printf("Event %d: PID: %d TIME: %d STATUS: %d\n",i ,queue->head->processID, queue->head->time, queue->head->status);
+        //popQueue(queue);
+        queue->head = queue->head->nextPointer; // the next event is assigned as head of queue and then print out 
     }
+}
+
+// free all the memory for the events in the queue and the queue itself
+void terminateQueue(Queue *queue){
+    if(queue->size != 0){
+        free(popQueue(queue));
+    }
+    free(queue);
 }
