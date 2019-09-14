@@ -7,6 +7,16 @@
 #define CPU_BUSY 1
 #define DISK1_BUSY 1
 #define DISK2_BUSY 1
+/*
+#define EVENT_ARRIVAL 0
+#define CPU_ARRIVAL 1
+#define CPU_FIN 2
+#define DISK1_ARRIVAL 3
+#define DISK2_ARRIVAL 4
+#define DISK1_FIN 5
+#define DISK2_FIN 6
+#define END_SIMULATION 7
+*/
 
 /*
 #define EVENT_ARRIVAL 0
@@ -51,13 +61,15 @@ int getNumOfEvents(Queue *eventQueue, int currentTime);
 
 //void cpuArrival(Queue *eventQueue, Queue *cpuQueue, int currentTime, Event *eventArrived);
 
-void cpuArrival(Queue *eventQueue, Queue *cpuQueue, int currentTime, Event *eventArrived);
+void enterCPU(Queue *eventQueue, Queue *cpuQueue, int currentTime, Event *eventArrived);
 
 void cpuFinished(Queue *cpuQueue, Event *eventFinished);
 
 //void diskArrival(Queue *eventQueue, Queue *diskQueue, int currenntTime, int diskNum, Event *eventArrived);
 
-void diskArrival(Queue *eventQueue, Queue *diskQueue, int currenntTime, int diskNum, Event *eventArrived);
+void enterDisk1(Queue *eventQueue, Queue *disk1Queue, int currenntTime, int diskNum, Event *eventArrived);
+
+void enterDisk2(Queue *eventQueue, Queue *disk2Queue, int currenntTime, int diskNum, Event *eventArrived);
 
 void disk1Finished(Queue *disk1Queue, Queue *eventQueue, Event *eventFinished);
 
@@ -77,7 +89,6 @@ int disk2State;
 int main(){
     int result = randomTime(1,2);
     printf("Result = %d\n", result);
-    
     return 0;
 }
 
@@ -94,7 +105,7 @@ in the random generator equation to get the random time. Then subtract the rando
 or upon ARRIVAL used in eventHandler(). 
 */
 int randomTime(int min, int max){
-    int randomTimeNum = min + rand() % (max - min + 1);
+    int randomTimeNum = rand() % (max - min + 1) + min;
     return randomTimeNum;
 }
 
@@ -127,22 +138,26 @@ if it's not busy then the event is going to the CPU.
 *
 *Note that another event will go into the CPU right away after the previous event leaves the CPU 
 */  
-void cpuArrival(Queue *eventQueue, Queue *cpuQueue, int currentTime){
+void enterCPU(Queue *eventQueue, Queue *cpuQueue, int currentTime){
     //First check if cpu is busy using if(!CPU_BUSY && !isEmpty(cpuQueue))
     //Event *currentEvent = popQueue(eventQueue); //make sure to check if the queue isn't empty, maybe createNewEvent()
     //currentEvent->status = CPU_ARRIVAL;
     //pushQueue(cpuQueue, currentEvent);
+
     eventAddedCPUQueue(eventQueue, cpuQueue);
-    if(!CPU_BUSY){
+    //put something about stats for cpu queue max size
+    
+    if(cpuState!=CPU_BUSY){
         Event *eventRemoved = popQueue(cpuQueue);
+        //stat update cpu queue size (cpuQueue->size, currentTime)
         cpuState = CPU_BUSY;
     
         int timeAdded = currentTime + randomTime(CPU_MIN, CPU_MAX);
         
         int arrivalTime = eventRemoved->time;
         eventRemoved->time = timeAdded;
-        eventRemoved->status = CPU_FIN;
-        fprintf(logFile, "\nEvent: %d - Time: %d is being processed by CPU\n", eventRemoved->processID, eventRemoved->time);
+
+        fprintf(logFile, "\nEvent: %d  Time: %d is being processed by CPU\n", eventRemoved->processID, eventRemoved->time);
         //stat update cpu idle (cpu state, current time)
         //stat update cpu response time (arrival time, eventRemoved->time)
     }
@@ -158,11 +173,9 @@ void cpuArrival(Queue *eventQueue, Queue *cpuQueue, int currentTime){
 
 /*
 *diskNum is for which disk the event will choose to go thus will go to the disk queue  
-
 */
 
 
-void cpuFinished(Queue *cpuQueue, Event *eventFinished, Queue *disk1Queue, Queue *disk2Queue){
 /*
 *Check if the cpu queue is empty && cpu is open, it that is the case then print the cpu queue size for stat file
 *Else if cpu queue is not empty && cpu is open then cpuArrival
@@ -176,10 +189,34 @@ then push them into the smallest disk queue
 like 0 or 1, 1 or 2, then whichever number is picked, push the event in the corresponding disk queue. 
 *
 */
+void cpuFinished(Queue *cpuQueue, Event *eventFinished, Queue *disk1Queue, Queue *disk2Queue,Queue *eventQueue, int currentTime){
+    fprintf(logFile, "Event %d has left the CPU at Time %d\n",eventFinished->processID, currentTime);
+    cpuState = !CPU_BUSY;
+    int minNum = 1, maxNum = 10;
+    int quit = randomTime(minNum, maxNum);
+    if(quit <= (int)(QUIT_PROB*10)){
+        fprintf(logFile, "Event: %d  Time: %d  has exited the system.", eventFinished->processID, eventFinished->time);
+    }
+    else{
+        if(disk1Queue->size < disk2Queue->size){
+            eventFinished->status = DISK1_ARRIVAL;
+            pushPriorityQueue(eventQueue, eventFinished);
+            //stat update on max size of disk 1 queue
+        }
+        else if(disk1Queue->size > disk2Queue->size){
+            eventFinished->status = DISK2_ARRIVAL;
+            pushPriorityQueue(eventQueue, eventFinished);
+            //stat update on max size of disk 2 queue
+        }
+    }
+    //stat update cpu finished
+    //stat update cpu open (cpuState, currentTime)
+    cpuArrival(eventQueue, cpuQueue, currentTime, popQueue(cpuQueue));
+    //stat update cpu queue size
 }
 
 
-void diskArrival(Queue *eventQueue, Queue *diskQueue, int currenntTime, int diskNum){
+void enterDisk1(Queue *eventQueue, Queue *diskQueue, int currenntTime, int diskNum){
     
 }
 

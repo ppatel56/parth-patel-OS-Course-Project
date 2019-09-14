@@ -35,13 +35,13 @@ int main(){
 *Make first initial event and final event->status = FIN_STATE
 *After the initial and final events, do random time 
 */
-Event *initializeEvent(int eventTime, int eventProcessID, int eventStatus){
+Event *initializeEvent(){
     Event *newEvent = (Event *)malloc(sizeof(Event));
-    eventStatus = EVENT_ARRIVAL;
-    newEvent->time = eventTime;
+    //eventStatus = EVENT_ARRIVAL;
+    //newEvent->time = eventTime;
     newEvent->processID = eventProcessID;
-    newEvent->status = eventStatus;
-    eventProcessID++;
+    newEvent->status = EVENT_ARRIVAL;
+    ++eventProcessID;
     return newEvent;
 }
 

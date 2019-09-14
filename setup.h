@@ -2,23 +2,15 @@
 #define SETUP
 
 #define EVENT_ARRIVAL 0
-#define EVENT_START 1
-#define EVENT_COMPLETION 2
-#define END_SIMULATION 3
+#define CPU_ARRIVAL 1
+#define CPU_FIN 2
+#define DISK1_ARRIVAL 3
+#define DISK2_ARRIVAL 4
+#define DISK1_FIN 5
+#define DISK2_FIN 6
+#define END_SIMULATION 7
 
-#define CPU 4
-#define DISK1 5
-#define DISK2 6
-#define CPUQ 7
-#define DISK1Q 8
-#define DISK2Q 9
 
-#define CPU_ARRIVAL 4
-#define CPU_FIN 5
-#define DISK_ARRIVAL 6
-#define DISK1_FIN 7
-#define DISK2_FIN 8
-#define FIN_STATE 9
 
 int SEED;
 int INITIAL_TIME;
