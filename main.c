@@ -70,6 +70,10 @@ nextProcessTime = currentTime + randTime(ARRIVE_MIN, ARRIVE_MAX);
 
 logFile = open("log.txt", "w");
 
+int cpuState;
+int disk1State;
+int disk2State;
+
 int main(){
     int result = randomTime(1,2);
     printf("Result = %d\n", result);
@@ -108,7 +112,11 @@ void createNewEvent(Queue *eventQueue){
     pushPriorityQueue(eventQueue, newEvent);
 }
 
-
+void eventAddedCPUQueue(Queue *eventqueue, Queue *cpuQueue){
+    Event *removedEvent = popQueue(eventqueue);
+    removedEvent->status = CPU_ARRIVAL;
+    pushQueue(cpuQueue, removedEvent);
+}
 
 /*                                                      which DISK is it going to?
 Queue *removedEvent, Queue *eventQueue, int currentTime, [int diskNum])  
@@ -121,14 +129,22 @@ if it's not busy then the event is going to the CPU.
 */  
 void cpuArrival(Queue *eventQueue, Queue *cpuQueue, int currentTime){
     //First check if cpu is busy using if(!CPU_BUSY && !isEmpty(cpuQueue))
-    Event *currentEvent = popQueue(eventQueue); //make sure to check if the queue isn't empty, maybe createNewEvent()
-    pushQueue(currentEvent);
-
+    //Event *currentEvent = popQueue(eventQueue); //make sure to check if the queue isn't empty, maybe createNewEvent()
+    //currentEvent->status = CPU_ARRIVAL;
+    //pushQueue(cpuQueue, currentEvent);
+    eventAddedCPUQueue(eventQueue, cpuQueue);
     if(!CPU_BUSY){
-        int timeAdd = currentTime + randomTime(CPU_MIN, CPU_MAX);
         Event *eventRemoved = popQueue(cpuQueue);
-        eventRemoved->status = CPU;
-        fprintf(logFile, "Event %d has entered CPU at time %d", eventRemoved->processID, eventRemoved->time);
+        cpuState = CPU_BUSY;
+    
+        int timeAdded = currentTime + randomTime(CPU_MIN, CPU_MAX);
+        
+        int arrivalTime = eventRemoved->time;
+        eventRemoved->time = timeAdded;
+        eventRemoved->status = CPU_FIN;
+        fprintf(logFile, "\nEvent: %d - Time: %d is being processed by CPU\n", eventRemoved->processID, eventRemoved->time);
+        //stat update cpu idle (cpu state, current time)
+        //stat update cpu response time (arrival time, eventRemoved->time)
     }
     /*
     *First check if the cpu is busy, if it isn't then pop the cpu queue and put it in CPU and update the event's status 
@@ -183,3 +199,22 @@ int getNumOfEvents(Queue *eventQueue, int currentTime){
     }
     return counter;
 }
+
+
+/*
+*So far I have gotten majority of cpuArrival done. I am thinking about using createNewEvent() if priority queue is empty or something.
+*Once I finish with cpuArrival, the disk1Arrival and disk2Arrival should be a little easier. 
+*Some important notes, use random generator at the end of cpuFinish() so that I can determine if event goes to disks or exit simulation.
+    *If event is exiting the simulation, then just print to log that the event has exited the system at its current time/timeAdded
+    *If event is going to disk, then obviously do if statements comparing the size of the disk queues to see which one is smaller.
+        *If one of the disk queue is smaller than the other, push the event to that disk queue
+        *Else if the size of the disk queues are equal, then do a random generator to choice which disk queue the event should enter.
+            *This will probably lead to more if statements.  
+        *Once I finshed with the diskArrival for each disk, work on the diskFinished for each disk 
+            *Which at the end of those functions, the finished event will be pushed into the event queue which will go into the cpu queue soon after. 
+*After that the event handler function is last function simulation function and then do testing.
+*If testing is successful, then do stat files.
+
+
+
+*/
