@@ -1,1 +1,2 @@
-Logging all events
+
+The simulation has reached Time: 10000, program has ended

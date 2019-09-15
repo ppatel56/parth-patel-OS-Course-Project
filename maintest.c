@@ -124,88 +124,7 @@ typedef struct{
 
 }Queue;*/
 
-int main(){
-    inputFile = fopen("input.txt", "r");
-    puts("Main:   Opened input file to read\n");
-    SEED = getInputValuesInt();
-    //puts("String 3/?\n");
-    INITIAL_TIME = getInputValuesInt();
-    //puts("String /?\n");
-    FINAL_TIME = getInputValuesInt();
-    ARRIVE_MIN = getInputValuesInt();
-    ARRIVE_MAX = getInputValuesInt();
-    QUIT_PROB = getInputValuesDouble();
-    CPU_MIN = getInputValuesInt();
-    CPU_MAX = getInputValuesInt();
-    DISK1_MIN = getInputValuesInt();
-    DISK1_MAX = getInputValuesInt();
-    DISK2_MIN = getInputValuesInt();
-    DISK2_MAX = getInputValuesInt();
-    puts("Main:   Got all the values from the input file\n");
-    fclose(inputFile);
-    puts("Main:   Input file is closed\n");
-    //stat initialize (FINAL_TIME)
-    logFile = fopen("log.txt", "w");
-    puts("Main:   Opened log file to write in the event logs\n");
-    //initialize the queues
-    eventQueue = initializeQueue();
-    cpuQueue = initializeQueue();
-    disk1Queue = initializeQueue();
-    disk2Queue = initializeQueue();
-    puts("Main:   Initialized all the queues\n");
-    //creating the first and last events
-    Event *firstEvent = initializeEvent();
-    puts("Main:   Initialized the first event\n");
-    firstEvent->time = INITIAL_TIME;
-    Event *lastEvent = initializeEvent();
-    puts("Main:   Initialized the last event\n");
-    lastEvent->status = END_SIMULATION;
-    lastEvent->time = FINAL_TIME;
-    puts("Main:   About to add the first event to the event queue\n");
-    pushPriorityQueue(eventQueue,firstEvent);
-    puts("Main:   Added the first event to event queue\n");
-    pushPriorityQueue(eventQueue,lastEvent);
-    puts("Main:   Added the last event to event queue\n");
-    
-    
-    //main while loop
-    while(eventQueue->size && currentTime < FINAL_TIME){
-        puts("Main:   Going through main while loop\n");
-        Event *currentEvent = popQueue(eventQueue);
-        puts("Main:   Removed the current event in the event queue\n");
-        currentTime = currentEvent->time;
-        puts("Main:   Current time is the current event's time\n");
-        puts("Main:   About to do event handling.\n");
-        eventHandling(eventQueue,cpuQueue,disk1Queue,disk2Queue,currentEvent,currentTime);
-        puts("Main:   Event handling successful\n");
-        //getting number of events count to record
-        //for(int i=0;i<){
-            
-        //}
-    }
-    puts("Main:   Finished the main while loop\n");
 
-
-    //Priority Queue testing 
-    /*
-    puts("String 1/5");
-    Event *event1 = initializeEvent();
-    puts("String 2/5");
-    Event *event2 = initializeEvent();
-    Event *event3 = initializeEvent();
-    puts("String 3/5");
-    Queue *eventQueue = initializeQueue();
-    //eventQueue->size = 5;
-    pushPriorityQueue(eventQueue, event1);
-    pushPriorityQueue(eventQueue, event2);
-    pushPriorityQueue(eventQueue, event3);
-    puts("String 4/5");
-    printQueue(eventQueue);
-    //printQueue(eventQueue);
-    puts("String 5/5");
-    */
-    return 0;
-}
 
 
 /* 
@@ -584,7 +503,7 @@ void pushPriorityQueue(Queue *queue, Event *newEvent){
     Event *currentEvent = queue->head;
     puts("pushPriorityQueue:   if there is a currentEvent as queue head\n");
     //Event *eventAfter = currentEvent->nextPointer;
-    if(queue->size == 0){
+    if(queue->size == 0 || newEvent->time >= queue->tail->time){
         puts("pushPriorityQueue:   if queue->size == 0\n");
         queue->head = newEvent;
         puts("pushPriorityQueue:   if queue->size == 0 then queue->head = newEvent\n");
@@ -677,8 +596,9 @@ void printQueue(Queue *queue){
         printf("Event %d: PID: %d TIME: %d STATUS: %d\n",i ,queue->head->processID, queue->head->time, queue->head->status);
         //popQueue(queue);
         queue->head = queue->head->nextPointer; // the next event is assigned as head of queue and then print out 
+        puts("\nprintQueue:  Done iteration\n");
     }
-    puts("printQueue:   function end\n");
+    puts("printQueue:  function end\n");
 }
 
 int getInputValuesInt(){
@@ -695,4 +615,106 @@ double getInputValuesDouble(){
     fscanf(inputFile,"%s",strVariable);
     fscanf(inputFile, "%lf", &value);
     return value;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int main(){
+    
+    inputFile = fopen("input.txt", "r");
+    puts("Main:   Opened input file to read\n");
+    SEED = getInputValuesInt();
+    //puts("String 3/?\n");
+    INITIAL_TIME = getInputValuesInt();
+    //puts("String /?\n");
+    FINAL_TIME = getInputValuesInt();
+    ARRIVE_MIN = getInputValuesInt();
+    ARRIVE_MAX = getInputValuesInt();
+    QUIT_PROB = getInputValuesDouble();
+    CPU_MIN = getInputValuesInt();
+    CPU_MAX = getInputValuesInt();
+    DISK1_MIN = getInputValuesInt();
+    DISK1_MAX = getInputValuesInt();
+    DISK2_MIN = getInputValuesInt();
+    DISK2_MAX = getInputValuesInt();
+    puts("Main:   Got all the values from the input file\n");
+    fclose(inputFile);
+    puts("Main:   Input file is closed\n");
+    //stat initialize (FINAL_TIME)
+    logFile = fopen("log.txt", "w");
+    puts("Main:   Opened log file to write in the event logs\n");
+    //initialize the queues
+    eventQueue = initializeQueue();
+    cpuQueue = initializeQueue();
+    disk1Queue = initializeQueue();
+    disk2Queue = initializeQueue();
+    puts("Main:   Initialized all the queues\n");
+    //creating the first and last events
+    Event *firstEvent = initializeEvent();
+    puts("Main:   Initialized the first event\n");
+    firstEvent->time = INITIAL_TIME;
+    Event *lastEvent = initializeEvent();
+    puts("Main:   Initialized the last event\n");
+    lastEvent->status = END_SIMULATION;
+    lastEvent->time = FINAL_TIME;
+    puts("Main:   About to add the first event to the event queue\n");
+    pushPriorityQueue(eventQueue,firstEvent);
+    puts("Main:   Added the first event to event queue\n");
+    puts("Main:   About to add the last event to event queue\n");
+    pushPriorityQueue(eventQueue,lastEvent);
+    puts("Main:   Added the last event to event queue\n");
+    //printQueue(eventQueue);
+    
+    //main while loop
+    while(eventQueue->size && currentTime < FINAL_TIME){
+        puts("Main:   Going through main while loop\n");
+        Event *currentEvent = popQueue(eventQueue);
+        puts("Main:   Removed the current event in the event queue\n");
+        currentTime = currentEvent->time;
+        puts("Main:   Current time is the current event's time\n");
+        puts("Main:   About to do event handling.\n");
+        eventHandling(eventQueue,cpuQueue,disk1Queue,disk2Queue,currentEvent,currentTime);
+        puts("Main:   Event handling successful\n");
+        //getting number of events count to record
+        //for(int i=0;i<){
+            
+        //}
+    }
+    puts("Main:   Finished the main while loop\n");
+    
+
+    //Priority Queue testing 
+    /*
+    puts("String 1/5");
+    Event *event1 = initializeEvent();
+    puts("String 2/5");
+    Event *event2 = initializeEvent();
+    Event *event3 = initializeEvent();
+    puts("String 3/5");
+    Queue *eventQueue = initializeQueue();
+    //eventQueue->size = 5;
+    pushPriorityQueue(eventQueue, event1);
+    pushPriorityQueue(eventQueue, event2);
+    pushPriorityQueue(eventQueue, event3);
+    puts("String 4/5");
+    printQueue(eventQueue);
+    //printQueue(eventQueue);
+    puts("String 5/5");
+    */
+
+    puts("Main:   End of main loop\n");
+    return 0;
 }
