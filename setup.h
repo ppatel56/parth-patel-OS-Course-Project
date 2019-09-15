@@ -28,7 +28,7 @@ int DISK2_MAX;
 
 
 int currentTime;
-int eventProcessID = 0;
+
 /*int numCPUJobsFinished;
 int numDisk1JobsFinished;
 int numDisk2JobsFinished;*/

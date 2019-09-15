@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "setup.h"
-
-
+int eventProcessID = 0;
+/*
 int main(){
     puts("String 1/5");
     Event *event1 = initializeEvent(10,0,0);
@@ -20,7 +20,7 @@ int main(){
     //printQueue(eventQueue);
     puts("String 5/5");
     return 0;
-}
+}*/
 
 //maybe do random time for arrival time
 

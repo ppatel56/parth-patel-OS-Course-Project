@@ -39,15 +39,12 @@ void disk1Finished(Queue *disk1Queue, Queue *eventQueue, Event *eventFinished, i
 
 void disk2Finished(Queue *disk2Queue, Queue *eventQueue, Event *eventFinished, int currentTime);
 
-void eventHandling(Queue *eventQueue, Queue *cpuQueue, Queue *disk1Queue, Queue *disk2Queue, Event *currentEvent,Event *toBeProcessed[],int currentTime, int numOfEvents);
+void eventHandling(Queue *eventQueue, Queue *cpuQueue, Queue *disk1Queue, Queue *disk2Queue, Event *currentEvent,int currentTime);
 
 //void createNewEvent();
-Event *nextEventArrival(Event *currentEvent);
+Event *nextEventArrival(Event *currentEvent, Queue *eventQueue, Queue *cpuQueue);
 
-Queue *eventQueue;
-Queue *cpuQueue;
-Queue *disk1Queue;
-Queue *disk2Queue;
+
 
 int nextProcessTime;
 
@@ -62,10 +59,53 @@ int disk2State;
 Event *nextEvent;
 
 int main(){
+    
+
+    inputFile = fopen("input.txt", "r");
+    SEED = getInputValuesInt();
+    INITIAL_TIME = getInputValuesInt();
+    FINAL_TIME = getInputValuesInt();
+    ARRIVE_MIN = getInputValuesInt();
+    ARRIVE_MAX = getInputValuesInt();
+    QUIT_PROB = getInputValuesDouble();
+    CPU_MIN = getInputValuesInt();
+    CPU_MAX = getInputValuesInt();
+    DISK1_MIN = getInputValuesInt();
+    DISK1_MAX = getInputValuesInt();
+    DISK2_MIN = getInputValuesInt();
+    DISK2_MAX = getInputValuesInt();
+    fclose(inputFile);
+
+    //stat initialize (FINAL_TIME)
     logFile = fopen("log.txt", "w");
-    Event *currentEvent = initializeEvent();
+    //initialize the queues
+    Queue *eventQueue = initializeQueue();
+    Queue *cpuQueue = initializeQueue();
+    Queue *disk1Queue = initializeQueue();
+    Queue *disk2Queue = initializeQueue();
+
+    //creating the first and last events
+    Event *firstEvent = initializeEvent();
+    firstEvent->time = INITIAL_TIME;
+    Event *lastEvent = initializeEvent();
+    lastEvent->status = END_SIMULATION;
+    lastEvent->time = FINAL_TIME;
+    pushPriorityQueue(eventQueue,firstEvent);
+    pushPriorityQueue(eventQueue,lastEvent);
     
     
+    //main while loop
+    while(eventQueue->size && currentTime < FINAL_TIME){
+        Event *currentEvent = popQueue(eventQueue);
+        currentTime = currentEvent->time;
+        eventHandling(eventQueue,cpuQueue,disk1Queue,disk2Queue,currentEvent,currentTime);
+        
+        //getting number of events count to record
+        /*for(int i=0;i<){
+            
+        }*/
+    }
+
     return 0;
 }
 
@@ -101,7 +141,7 @@ to event queue
     return newEvent;
 }
 */
-Event *nextEventArrival(Event *currentEvent){
+Event *nextEventArrival(Event *currentEvent,Queue *eventQueue,Queue *cpuQueue){
     Event *newEvent = initializeEvent();
     newEvent->time = currentTime + randomTime(ARRIVE_MIN, ARRIVE_MIN);
     pushPriorityQueue(eventQueue, newEvent);
@@ -291,10 +331,10 @@ void disk2Finished(Queue *disk2Queue, Queue *eventQueue, Event *eventFinished, i
 Passing in all four queues, events that are to be processed, current time, and number of events
 
 */
-void eventHandling(Queue *eventQueue, Queue *cpuQueue, Queue *disk1Queue, Queue *disk2Queue, Event *currentEvent,Event *toBeProcessed[],int currentTime, int numOfEvents){
-    switch (currentTime->status){
+void eventHandling(Queue *eventQueue, Queue *cpuQueue, Queue *disk1Queue, Queue *disk2Queue, Event *currentEvent,int currentTime){
+    switch (currentEvent->status){
         case EVENT_ARRIVAL:
-           nextEvent = nextEventArrival(currentEvent);
+           nextEvent = nextEventArrival(currentEvent,eventQueue,cpuQueue);
            break;
         case CPU_ARRIVAL:
             enterCPU(eventQueue, cpuQueue, currentEvent, currentTime);

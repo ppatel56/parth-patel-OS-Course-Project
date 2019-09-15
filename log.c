@@ -3,7 +3,7 @@
 #include <string.h>
 #include "setup.h"
 #include "log.h"
-
+/*
 int main(){
     inputFile = fopen("input.txt", "r");
     SEED = getInputValuesInt();
@@ -24,7 +24,7 @@ int main(){
     printf("DISK2 MIN: %d\nDISK2 MAX: %d\n",DISK2_MIN,DISK2_MAX);
 
     return 0;
-}
+}*/
 
 /*
 Get values from the input files by converting strings into ints and doubles
