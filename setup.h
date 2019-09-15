@@ -55,13 +55,12 @@ typedef struct{
 }Queue;
 
 //create event function
-Event *initializeEvent(int, int, int);
+Event *initializeEvent();
 //priority queue
 //void pushPriorityQueue(Queue *, int time, int pid, int status);
 void pushPriorityQueue(Queue *, Event *);
 
 Queue *initializeQueue();
-int isEmpty(Queue *);
 void pushQueue(Queue *, Event *);
 Event *popQueue(Queue *);
 Event *peek(Queue *);

@@ -142,7 +142,3 @@ void printQueue(Queue *queue){
         queue->head = queue->head->nextPointer; // the next event is assigned as head of queue and then print out 
     }
 }
-
-int isEmpty(Queue *queue){
-    return(queue->size ==0);
-}
