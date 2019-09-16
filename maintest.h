@@ -1,24 +1,31 @@
 #ifndef MAINTEST
 #define MAINTEST
 
-//An event to be added to queue structure
 typedef struct Event{
-    int time; //Lowest time will have top priority in the priority queue, or event queue
-
-    int processID;
-    int status;
-    // int status can be the state of the process such as
-    // process in the CPU, DISK1, DISK2, (CPU,DISK 1&2) Queues
-    // or even Finished simulation each have numbers assigned
-
-    struct Event *nextPointer;//pointer
+  int time;
+  int processID;
+  int status;
 }Event;
 
-typedef struct{
+Event *initializeEvent();
 
-    int size; //capacity of Queue
-    Event *head; //front node
-    Event *tail; //rear node
 
+typedef struct node{
+    struct node* nextNode;
+    Event *event;
+}Node;
+
+typedef struct queue{
+    Node *firstNode;
+    Node *lastNode;
+    int size;
 }Queue;
+
+Node *newNode(Event* event);
+Event *popQueue(Queue* queue);
+Queue *initializeQueue();
+void pushPriorityQueue(Queue *eventQueue, Event *event);
+void pushQueue(Queue *queue, Event *event);
+
+
 #endif // MAINTEST
