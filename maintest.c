@@ -147,7 +147,7 @@ to event queue
 */
 Event *createNewEvent(){
     Event *newEvent = initializeEvent();
-    newEvent->time = currentTime + randomTime(ARRIVE_MIN, ARRIVE_MIN);
+    newEvent->time = currentTime + randomTime(ARRIVE_MIN, ARRIVE_MAX);
     pushPriorityQueue(eventQueue, newEvent);
     return newEvent;
 }
@@ -155,7 +155,7 @@ Event *createNewEvent(){
 Event *nextEventArrival(Event *currentEvent){
     Event *newEvent = initializeEvent();
     puts("nextEventArrival:  newEvent initialized\n");
-    newEvent->time = currentTime + randomTime(ARRIVE_MIN, ARRIVE_MIN);
+    newEvent->time = currentTime + randomTime(ARRIVE_MIN, ARRIVE_MAX);
     puts("nextEventArrival:  newEvent time is add to current time\n");
     puts("nextEventArrival:  newEvent about to enter the event queue\n");
     pushPriorityQueue(eventQueue, newEvent);
@@ -500,26 +500,33 @@ Queue *initializeQueue(){
 //void pushPriorityQueue(Queue *queue, int eTime, int ePID, int eStatus)
 void pushPriorityQueue(Queue *queue, Event *newEvent){
     // current event in the priority queue, if there is one
+    //Event *currentEvent = queue->head;
     Event *currentEvent = queue->head;
+
     puts("pushPriorityQueue:   if there is a currentEvent as queue head\n");
-    //Event *eventAfter = currentEvent->nextPointer;
-    if(queue->size == 0 || newEvent->time >= queue->tail->time){
+    
+    //Temporary pointer to the new event added to priority queue
+    Event *tempPointer = (Event*)malloc(sizeof(Event));
+    tempPointer->time = newEvent->time;
+    tempPointer->processID = newEvent->processID;
+    tempPointer->status = newEvent->status;
+    if(queue->size == 0){
         puts("pushPriorityQueue:   if queue->size == 0\n");
-        queue->head = newEvent;
+        queue->head = tempPointer;
         puts("pushPriorityQueue:   if queue->size == 0 then queue->head = newEvent\n");
-        queue->tail = newEvent;
+        queue->tail = tempPointer;
         puts("pushPriorityQueue:   if queue->size == 0 then queue->tail = newEvent\n");
-        queue->size += 1;
+        //queue->size += 1;
         //pushQueue(queue,newEvent);
     }
     // multiple events in priority queue
     else{
         // the time of new event is less than or equal to the time of head node, so there is higher priority
-        if(newEvent->time <= currentEvent->time){
+        if(tempPointer->time <= currentEvent->time){
             puts("pushPriorityQueue:  if newEvent time is less or equal to currentEvent time\n");
-            newEvent->nextPointer = queue->head; //assign new event to the head node
+            tempPointer->nextPointer = queue->head; //assign new event to the head node
             puts("pushPriorityQueue:   assign newEvent to the head node\n");
-            queue->head = newEvent; //assign head node to the new event
+            queue->head = tempPointer; //assign head node to the new event
             puts("pushPriorityQueue:   assign head node to the newEvent\n");
         }
         else{
@@ -527,16 +534,16 @@ void pushPriorityQueue(Queue *queue, Event *newEvent){
             //int i = 0;
             int i;
             //for(i = 0; i < queue->size-1; i++){
-            for(i=0;i<queue->size-1;i++){
+            for(i=0; i < queue->size-1; i++){
                 puts("pushPriorityQueue:   iterate through the priority queue\n");
                 // if the new event's time is between the current event's time and some 'next event' node's time
                 // make the 'next event' a node to new event, and then make new event the next node to current event
                 //else new event has greateer time than time of head node, so lower priority
-                if(newEvent->time > currentEvent->time && newEvent->time <= currentEvent->nextPointer->time){
+                if(tempPointer->time > currentEvent->time && tempPointer->time <= currentEvent->nextPointer->time){
                     puts("pushPriorityQueue:   if there is an event time greater than newEvent time then try to switch it\n");
-                    newEvent->nextPointer = currentEvent->nextPointer;
+                    tempPointer->nextPointer = currentEvent->nextPointer;
                     puts("pushPriorityQueue:   newEvent is switching places\n");
-                    currentEvent->nextPointer = newEvent;
+                    currentEvent->nextPointer = tempPointer;
                     puts("pushPriorityQueue:   newEvent switched places\n");
                     break; // end the loop once the position is found
                 }
@@ -545,12 +552,28 @@ void pushPriorityQueue(Queue *queue, Event *newEvent){
                 puts("pushPriorityQueue:   if no position is found during the iteration then assign next node to current event\n");
                 //i++;
             }
+            if(i== queue->size-1){
+                currentEvent->nextPointer = tempPointer;
+                queue->tail = tempPointer;
+            }
         }
-        queue->size += 1;
+        //queue->size += 1;
     }
-    //queue->size++;
+    queue->size++;
     puts("pushPriorityQueue:   increment the eventQueue by 1\n");
 }
+
+/*}
+	if (i == queue-> size - 1) {
+	  currentEvent->nextPointer = tempPtr;
+	  queue->tail = tempPtr;
+	}
+
+      }
+    }
+    queue->size++;
+}*/
+
 
 //void enqueue(Queue *q, int time, int processID, int status)
 void pushQueue(Queue *queue, Event *event){
@@ -661,11 +684,18 @@ int main(){
     cpuQueue = initializeQueue();
     disk1Queue = initializeQueue();
     disk2Queue = initializeQueue();
+
+    //int initialTime = INITIAL_TIME;
+    currentTime = INITIAL_TIME;
+
+
     puts("Main:   Initialized all the queues\n");
     //creating the first and last events
     Event *firstEvent = initializeEvent();
     puts("Main:   Initialized the first event\n");
     firstEvent->time = INITIAL_TIME;
+
+
     Event *lastEvent = initializeEvent();
     puts("Main:   Initialized the last event\n");
     lastEvent->status = END_SIMULATION;
@@ -690,7 +720,6 @@ int main(){
         puts("Main:   Event handling successful\n");
         //getting number of events count to record
         //for(int i=0;i<){
-            
         //}
     }
     puts("Main:   Finished the main while loop\n");
