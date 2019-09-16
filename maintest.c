@@ -21,7 +21,7 @@ void enterCPU(Event *currentEvent);
 
 void cpuFinished(Event *eventFinished);
 
-void enterDisk(Event* currentEvent);
+void enterDisk(Event *currentEvent);
 
 void disk1Finished(Event *eventFinished);
 
@@ -34,7 +34,13 @@ void nextEventArrival(Event *currentEvent);
 
 int getInputValuesInt();
 
+//Stat functions
+void initializeStatVariables();
+void statCPU(int cpuQueueSize);
 
+
+
+//Input Variables from input file
 int initialTime;
 int finalTime;
 int arriveMin;
@@ -47,6 +53,27 @@ int disk1Max;
 int disk2Min;
 int disk2Max;
 
+
+//Variables for the stat file
+int totalTime;
+
+int processingTimeCPU;
+int maxSizeCPUQueue;
+double avgSizeCPUQueue; //sum divided by number can lead to decimal numbers
+int responseTimeCPU; 
+
+
+int processingTimeDisk1;
+int maxSizeDisk1Queue;
+double avgSizeDisk1Queue;
+int responseTimeDisk1;
+
+
+int processingTimeDisk2;
+int disk2Idle;
+int maxSizeDisk2Queue;
+double avgSizeDisk2Queue; 
+int responseTimeDisk2;
 
 Queue *eventQueue;
 Queue *cpuQueue;
@@ -181,13 +208,9 @@ int getInputValuesInt(){
 /*
 *Creating new events that happens at random time between the arriveMin and arriveMax, so at that time the event is created and pushed 
 to event queue
-
-*This will be in the main while loop so it will happen constantly 
+*This will be in the main while loop via eventHandling() so it will happen constantly 
 *
 */
-
-
-
 void nextEventArrival(Event *newEvent){
     //Creating next event to enter the simulation.
     Event *nextEvent = initializeEvent();
@@ -198,21 +221,25 @@ void nextEventArrival(Event *newEvent){
 }
 
 /*
-*
+*If the CPU is IDLE, the currentEvent can enter right away since if the CPU was BUSY it would have gone to the cpu queue.
+*Once currentEvent enters the CPU will become BUSY, and the arrival time is recorded as well as the currentEvent's time once 
+the currentTime + CPU TIME is assigned to currentEvent's time 
+*CurrentEvent's status is then changed to CPU_FIN and is sent to event queue, in order for eventHandling to take care of it
 */
 void enterCPU(Event* currentEvent){
     if(cpuState == IDLE){
         fprintf(logFile, "\nTime: %d  --  Event %d is being processed.", currentTime, currentEvent->processID);
         cpuState = BUSY;
-        //statUpdateCpuIdle(cpuState, currentTime);
+
         int jobArrivalTime = currentEvent->time;
         currentEvent->time = currentTime + randomTime(cpuMin,cpuMax);
         currentEvent->status = CPU_FIN;
-        //statUpdateCpuResponseTime(jobArrivalTime, currentEvent->time);
+        //Goes back into event queue so that the event handler will place it in the cpuFinished() function
+        //The events will always go back to event queue so that the event handler will place them to the next device or exit
         pushPriorityQueue(eventQueue, currentEvent);
     } else{
         pushQueue(cpuQueue, currentEvent);
-        //statUpdateCpuQSize(cpuQueue->size, currentTime);
+        ////update cpu queue size in stat
     }
 }
 
@@ -224,11 +251,10 @@ void enterCPU(Event* currentEvent){
 */
 void cpuFinished(Event* currentEvent){
     cpuState = IDLE;
-    //statCpuJobFinished();
-    //statUpdateCpuIdle(cpuState, currentTime);
+    
     if(cpuQueue->size != 0){
         enterCPU(popQueue(cpuQueue));
-        //statUpdateCpuQSize(cpuQueue->size, currentTime);
+        ////update cpu queue size in stat
     }
     int min = 1, max = 100;
     if(randomTime(min,max) <= quitProb){
@@ -259,42 +285,49 @@ void enterDisk(Event* currentEvent){
     }
     if(*diskState == IDLE){
         *diskState = BUSY;
-        //statUpdateDiskIdle(diskNumber, *diskStatus, currentTime);
+        
         arrivalTime = currentEvent->time;
         currentEvent->time = currentTime + randomTime(disk1Min,disk1Max);
         currentEvent->status = eventChoice;
-        //statUpdateDiskResponseTime(diskNumber, jobArrivalTime, currentEvent->time);
         pushPriorityQueue(eventQueue, currentEvent);
     }else{
         pushQueue(diskQueue, currentEvent);
-        //statUpdateDiskQSize(diskNumber, diskQueue->size, currentTime);
+        //update disk queue size in stat
     }
 }
 
-
+/*
+*As per usual with the other event handling functions, make the device states IDLE, then make 
+currentEvent's status to the next process which in this case is back to CPU_ARRIVAL and put it back into the event queue
+*Then check if the corresponding disk queues are not empty, if they aren't do enterDisk() with an event removed from disk queue
+*/
 void disk1Finished(Event *currentEvent){
     disk1State = IDLE;
-    //statDiskJobFinished(1);
-    //statUpdateDiskIdle(1, disk1State, currentTime);
+    
+    currentEvent->status = CPU_ARRIVAL;
+    
+    pushPriorityQueue(eventQueue, currentEvent);
+    
     if(disk1Queue->size != 0){
         enterDisk(popQueue(disk1Queue));
-        //statUpdateDiskQSize(1, disk1Queue->size, currentTime);
+        //update disk1 queue size in stat
     }
-    currentEvent->status = CPU_ARRIVAL;
-    pushPriorityQueue(eventQueue, currentEvent);
+    
 }
 
 
 void disk2Finished(Event *currentEvent){
     disk2State = IDLE;
-    //statDiskJobFinished(2);
-    //statUpdateDiskIdle(2, disk2State, currentTime);
+
+    currentEvent->status = CPU_ARRIVAL;
+    
+    pushPriorityQueue(eventQueue, currentEvent);
+    
     if(disk2Queue->size != 0){
         enterDisk(popQueue(disk2Queue));
-        //statUpdateDiskQSize(2, disk2Queue->size, currentTime);
+        //update disk2 queue size in stat
     }
-    currentEvent->status = CPU_ARRIVAL;
-    pushPriorityQueue(eventQueue, currentEvent);
+
 }
 
 
@@ -339,22 +372,38 @@ void eventHandling(Event* currentEvent){
 
 
 
+void initializeStatVariables(){
+    totalTime = finalTime;
+    processingTimeCPU=0;
+    maxSizeCPUQueue=0;
+    avgSizeCPUQueue=0; //sum divided by number can lead to decimal numbers
+    
+    responseTimeCPU=0; 
 
 
+    processingTimeDisk1=0;
+    maxSizeDisk1Queue=0;
+    avgSizeDisk1Queue=0;
+
+    responseTimeDisk1=0;
 
 
+    processingTimeDisk2=0;
+    disk2Idle=0;
+    maxSizeDisk2Queue=0;
+    avgSizeDisk2Queue=0; 
 
-
-
+    responseTimeDisk2=0;
+}
 
 
 
 int main(){
-    //initSystemValues();
-    currentTime = initialTime;
-    cpuState = !BUSY;
-    disk1State = !BUSY;
-    disk2State = !BUSY;
+
+    
+    cpuState = IDLE;
+    disk1State = IDLE;
+    disk2State = IDLE;
     
     cpuQueue = initializeQueue();
     disk1Queue = initializeQueue();
@@ -374,24 +423,35 @@ int main(){
     disk2Min = getInputValuesInt();
     disk2Max = getInputValuesInt();
     fclose(inputFile);
+    currentTime = initialTime; //currentTime = 0
     
     logFile = fopen("logfile.txt", "w");
-
-    Event* lastJob = initializeEvent();
-    lastJob->time = finalTime;
-    lastJob->status = END_SIMULATION;
-    pushPriorityQueue(eventQueue, lastJob);
+    /*
+    *Create first event and assign the first event the initial time which is 0
+    *Then add the first event to the event queue
+    */
+    Event *firstEvent = initializeEvent();
+    firstEvent->time = initialTime;
+    pushPriorityQueue(eventQueue, firstEvent);
     
-    /*Create first event and add it to the eventqueue at time 0*/
-    Event* job1 = initializeEvent();
-    job1->time = 0;
-    pushPriorityQueue(eventQueue, job1);
+    /*
+    *Create last event and assign the last event the final time.
+    *Then add the last event to the event queue
+    *Last event is basically always gonna be the last event until the simulation time reaches final time
+    */
+    Event *lastEvent = initializeEvent();
+    lastEvent->time = finalTime;
+    lastEvent->status = END_SIMULATION;
+    pushPriorityQueue(eventQueue, lastEvent);
+    
+    
     while(eventQueue->size != 0 && currentTime < finalTime){
         Event* nextEvent = popQueue(eventQueue);
         currentTime = nextEvent->time;
         eventHandling(nextEvent);
     }
+    initializeStatVariables();
+    statFile = fopen("stat.txt", "w");
+    fprintf(statFile,"SIMULATION STATASTICS:\n");
     return 0;
 }
-
-
