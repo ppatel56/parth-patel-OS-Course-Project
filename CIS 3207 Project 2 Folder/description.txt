@@ -1,0 +1,1 @@
+This project creates a linux shell that uses basic built-in commands, piping, redirection, executes commands in background.
