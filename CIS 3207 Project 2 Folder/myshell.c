@@ -1,28 +1,27 @@
 #include <stdio.h> 
 #include <stdlib.h> 
-#include <unistd.h.> 
+//#include <io.h.> 
 #include <string.h>  
 #include <dirent.h> 
 #include <sys/types.h>
+#include <unistd.h>
 
-char **parser(char *input);
-
-
+void shellPrompt();
 char **parser (char *input);  
 //parses out the string input by get the tokens and eliminate the white space 
-int pipe (char *input); 
+int piping(char *input); 
 //This will take in the string input and parse it using the parsing function, then create two parameters  
 // “parameter 1 | parameter 2”, since we are dealing with strings, the parameters are char[num]    
 void currentDirectory (); //This function acts like “ls” command in Linux 
 void clear (); 
 //NOTE to clear screen I can print (“033[H 033[2J”) since system () cannot be used 
-void changeDirectory (char *args); //chdir(newDir) will change current working directory to newDir 
-void pause ();  
+void changeDirectory (char **args); //chdir(newDir) will change current working directory to newDir 
+void pausing();  
 void quit (); 
-void echo (char *args); 
+void echo (char **args); 
 void help (); 
 void environment (); 
-int getCommandInput (char *args);  
+int getCommandInput (char *input, char **parsedArgs);  
 // Check ifthe commands are built in the shell or not such as clear () or “directory” 
 int backgroundExecution (char *input);  
 //checks ifthe commands are external or built-in using getCommandInput(char *input); and does //external execution ifthe input is not found in built-in commands, also ifredirection or piping happens 
@@ -30,6 +29,16 @@ int backgroundExecution (char *input);
 int redirection (char *input); 
 // sends the output to a file rather than screen  
  
+
+
+void shellPrompt(char *input){
+    char cwd[1024]; //current working directory
+    getcwd(cwd, sizeof(cwd));
+    if(getcwd(cwd, sizeof(cwd)) != NULL){
+        printf("%s$ ",cwd);
+        fgets(input, 1024, stdin);
+    }
+} 
  
 /* 
  The parser function is to pass in the input from the user and makes it into constituent pieces of executable code. 
@@ -37,19 +46,20 @@ The critical part of the function is the strtok () function which helps split th
 In this function the strtok () is used to delimit the white spaces out of the input.  
 */  
 char **parser (char *input) { 
-int bufferSize = 1024, index = 0; //for the string token position in tokens [index] 
-char **tokens = malloc (bufferSize * sizeof(char *)); 
-// allocating space for the tokens and its double pointers because elements in the array are  
-// pointers, the array must be a pointer to a pointer  
-char *token; // represents a token in the array of tokens  
-token = strtok (input, " \t\n"); // This  -->  " \t\n" represents the whitespaces that are common 
-while(token != NULL) {  
-tokens [index] = token; 
-index++; 
-// Maybe check ifthere needs to be a reallocation ifthe bufferSize somehow is less than index. 
-token = strtok (NULL, " \t\n"); // place null terminated \0 at the end of each token 
-} 
-return tokens; 
+    int bufferSize = 1024, index = 0; //for the string token position in tokens [index] 
+    char **tokens = malloc (bufferSize * sizeof(char *)); 
+    // allocating space for the tokens and its double pointers because elements in the array are  
+    // pointers, the array must be a pointer to a pointer  
+    char *token; // represents a token in the array of tokens  
+    token = strtok (input, " \t\n"); // This  -->  " \t\n" represents the whitespaces that are common 
+    while(token != NULL) {  
+        tokens [index] = token; 
+        // Maybe check ifthere needs to be a reallocation ifthe bufferSize somehow is less than index. 
+        token = strtok (NULL, " \t\n"); // place null terminated \0 at the end of each token 
+        index++; 
+    } 
+    tokens[index] = NULL;
+    return tokens; 
 } 
  
  
@@ -68,13 +78,13 @@ And just like clear (), this function doesn’t need any inputs passed in.
 void quit() { 
     puts("Exiting the Program"); 
 exit(0); 
-} 
+}
 /* 
 The pause () basically pauses the terminal until the user hits the “Enter” key which is “\n” 
 ifthe user types in any other character, the program will still be paused until the user hits the “Enter” key 
 The getchar () is used because it takes in any character that is inputted 
 */ 
-void pause () { 
+void pausing() { 
     char character; // 
     puts("Shell program is paused until ENTER or RETURN are pressed."); 
     // Using getchar () in the whileloop argument, the user can type any character on the one line, 
@@ -90,7 +100,7 @@ Using fgetc () function to get every character in the file without any trouble w
 void help () { 
     FILE *helpFile; 
     char character; 
-    helpFile = Fopen("README.txt", "r"); 
+    helpFile = fopen("README.txt", "r"); 
     if(helpFile == NULL) { 
     puts("File not found"); 
     } 
@@ -98,10 +108,10 @@ void help () {
         //Loop till the character has not reached End of File 
         while(character != EOF) { 
         character = fgetc (helpFile); 
-        printf("%s", character);  
+        printf("%c", character);  
         } 
     } 
-Fclose (helpFile); 
+fclose(helpFile); 
 } 
  
  
@@ -112,12 +122,41 @@ Assign getenv() to a string pointer then print the string.
 */ 
 void environment () { 
     char *string; 
+    string = (char *)malloc(2000*sizeof(char)); 
+    string = getenv("HOSTTYPE"); 
+    printf("\nHOSTTYPE=%s", string);
+    string = getenv("LESSCLOSE"); 
+    printf("\nLESSCLOSE =%s", string);
     string = getenv("LANG"); 
-    printf("\nLANG=%s", string); 
+    printf("\nLANG =%s", string);  
     string = getenv("WSL_DISTRO_NAME"); 
     printf("\nWSL_DISTRO_NAME =%s", string); 
     string = getenv("USER"); 
-    printf("\nUSER\n=",string); 
+    printf("\nUSER=%s",string);
+    string = getenv("PWD"); 
+    printf("\nPWD =%s", string);
+    string = getenv("HOME"); 
+    printf("\nHOME =%s", string);
+    string = getenv("NAME"); 
+    printf("\nNAME =%s", string);
+    string = getenv("XDG_DATA_DIRS"); 
+    printf("\nXDG_DATA_DIRS =%s", string); 
+    string = getenv("SHELL");
+    printf("\nSHELL=%s",string);
+    string = getenv("TERM"); 
+    printf("\nTERM =%s", string);
+    string = getenv("SHLVL"); 
+    printf("\nSHLVL =%s", string);
+    string = getenv("LOGNAME"); 
+    printf("\nLOGNAME =%s", string);
+    string = getenv("PATH"); 
+    printf("\nPATH =%s", string);
+    string = getenv("WSLENV"); 
+    printf("\nWSLENV =%s", string);
+    string = getenv("LESSOPEN"); 
+    printf("\nLESSOPEN =%s\n", string);
+    
+    
 /* 
 This will repeat till all the environment variables are in the function. They will be in the actual program/code. 
 */ 
@@ -128,18 +167,19 @@ The function echo () is simple as it will print out the statement after the “e
 Since the input is parsed, the args[0] is already echo, so whatever statement after is args[1] args[2]… 
 Echo hello there --> args[0] args[1] args[2] 
 */ 
-void echo (char *args) { 
+void echo (char **args) { 
     int index = 1; 
-    while(args[index] != NULL){ 
-        printf("%s", args[index]); 
-        index ++; 
-    }  
+    while(args[index] != '\0'){ 
+        printf("%s ", args[index]); 
+        index++; 
+    }
+    printf("\n");  
 } 
 /* 
 This function is the equivalent to “ls” which lists the contents (i.e. files) in the current directory. 
 There is a struct dirent from the dirent.h which constructs directory traversal  
 */ 
-void currentDirectory (char *args) { 
+void currentDirectory (char **args) { 
     DIR *dir; 
     struct dirent *dirEntry;  
     char *directory; //Name of the directory  
@@ -156,12 +196,14 @@ Change directory is just “cd”
 There will be a function called chdir () used that will pass in the new directory variable.  
 This will be vaguely similar to the echo () function where args[1] will be the new directory.  
 */ 
-void changeDirectory (char *args) { 
+void changeDirectory (char **args) { 
     char *newDir = args[1]; 
-    if(chdir(newDir) == 0){ 
+//    if(chdir(newDir) == 0){ 
 //nothing is put here because you don’t need to print anything out 
-    }
-    else if(chdir (newDir) != 0){ 
+//    }
+
+    //if chdir does not return zero then error
+    if(chdir(newDir) != 0){ 
         printf("No such directory found\n"); 
     } 
 } 
@@ -175,41 +217,42 @@ The getCommandInputwill take in the argument from the user and determines what t
 The type of the function is int because it is going to return a number whether it be 0 or -1, so that this function will be used more in the more complex functions such as redirection or piping 
 NOTE: The inputs will be parsed before passed in the function every time.  
 */ 
-int getCommandInput(char *input) { 
-    if(input[0] == NULL){  
+int getCommandInput(char *input, char **parsedArgs) { 
+    if(parsedArgs[0] == NULL){  
         // if the user doesn’t input a command that are built-in or external i.e. fdfd or \n 
         puts("Command doesn’t exit. Try again."); 
         return 0;   
     } 
-    else if(strcmp (input[0], "clr")) { 
+    if(strcmp (parsedArgs[0], "quit")==0){ 
+        puts("Exiting the Program"); 
+        exit(0); 
+    } 
+    else if(strcmp(parsedArgs[0], "clr")==0) { 
         clear(); 
         return 0; 
     }
-    else if(strcmp (input[0], "quit")){ 
-        quit();
-        
-    } 
-    else if(strcmp (input[0], "pause")) { 
-        pause();
+    
+    else if(strcmp (parsedArgs[0], "pause")==0) { 
+        pausing();
         return 0;
-    } 
-    else if(strcmp (input[0], "help")) { 
+    }
+    if(strcmp (parsedArgs[0], "help")==0) { 
         help();
         return 0;
     } 
-    else if(strcmp (input[0], "echo")) { 
-        echo(input);
+    else if(strcmp (parsedArgs[0], "echo")==0) { 
+        echo(parsedArgs);
         return 0;
     } 
-    else if(strcmp (input[0], "dir")) { 
-        currentDirectory("input"); 
+    else if(strcmp (parsedArgs[0], "dir")==0){ 
+        currentDirectory(parsedArgs); 
         return 0; 
     } 
-    else if(strcmp (input[0], "cd")) { 
-        changeDirectory("input"); 
+    else if(strcmp (parsedArgs[0], "cd")==0){ 
+        changeDirectory(parsedArgs); 
         return 0; 
     } 
-    else if(strcmp (input[0], "environ")) { 
+    else if(strcmp (parsedArgs[0], "environ")==0) { 
         environment(); 
         return 0; 
     } 
@@ -262,17 +305,120 @@ Just like redirection, the function will be an int so it will return 0 on succes
 The functions fork(), wait() which is process waiting for the other process to finish, and execvp() might be used 
 whileloop is used to find the “|” pipe symbol 
 */ 
-int pipe(char *input){ 
+int piping(char *input){ 
 //First pares the input. 
-    char *args = parser (input); 
+    char **args = parser(input); 
     int index = 0; 
-    char *first, *second; // assign the first and second parameters when finding the pipe symbol 
-    while(args[index] != NULL) { 
+    char *first[30], *second[30], *pipeSym[1]; // assign the first and second parameters when finding the pipe symbol 
+    /*while(args[index] != "|") { 
+        
+        
+        first[index] = args[index];
+
+        index++; 
+    }
+    pipeSym[index] = "|";
+    index++;
+    while(pipeSym[index-1] == "|" && args[index] != NULL){
+
+    }*/
+    while(args[index] != NULL){
+
+        first[index] = args[index];
+
         if(strcmp (args[index], "|")){ 
         // Try to create the two new child processes using fork() and using dup2(), and execvp(second)   
-        //break at the end of the if-statement  
-        } 
-        index++; 
-    } 
+        //break at the end of the if-statement
+        //first[index-1] = args[index];
+        //second = args[index+1];
+        break; 
+        }
+        index++;
+    }
+    index++; //increment the index to the next element in the array after "|" or AKA the second parameter
+    while(args[index] != NULL){
+        second[index] = args[index];
+        index++;
+    }
+
+    
+
 return 0; // return 0 ifsuccessful 
 } 
+
+
+
+
+/*
+int pipe(char *input){
+    char **args = parser(input);
+
+    return 0;
+}*/
+
+
+
+int backgroundExecution(char *input){
+    //First pares the input. 
+    char **args = parser(input); 
+    int index = 0; 
+    char *first[30], *second[30];
+
+    while(args[index] != NULL){
+
+    }
+
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int main(){
+    char input[1024];
+    
+    shellPrompt(input);
+    
+   /* 
+    //TEST FOR PARSING A STRING
+    puts("Hello");
+    char **parse = parser(input);
+    puts("There");
+    int i = 0;
+    while(parse[i] != '\0'){
+        printf("Token %d : %s\n", i,parse[i]);
+        i++;
+    }
+    i++;
+    puts("Bye");*/
+    char **args = parser(input);
+    //getCommandInput(input, args);
+    while(1){
+    
+        getCommandInput(input, args);
+
+
+        shellPrompt(input);
+    }
+
+
+    
+    return 0;
+}
