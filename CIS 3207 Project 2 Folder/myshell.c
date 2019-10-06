@@ -1,9 +1,9 @@
 #include <stdio.h> 
 #include <stdlib.h> 
-//#include <io.h.> 
 #include <string.h>  
 #include <dirent.h> 
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 void shellPrompt();
@@ -12,21 +12,24 @@ char **parser (char *input);
 int piping(char *input); 
 //This will take in the string input and parse it using the parsing function, then create two parameters  
 // “parameter 1 | parameter 2”, since we are dealing with strings, the parameters are char[num]    
-void currentDirectory (); //This function acts like “ls” command in Linux 
-void clear (); 
+void currentDirectory(); //This function acts like “ls” command in Linux 
+void clear(); 
 //NOTE to clear screen I can print (“033[H 033[2J”) since system () cannot be used 
-void changeDirectory (char **args); //chdir(newDir) will change current working directory to newDir 
+void changeDirectory(char **args); //chdir(newDir) will change current working directory to newDir 
 void pausing();  
-void quit (); 
-void echo (char **args); 
-void help (); 
-void environment (); 
+void quit(); 
+void echo(char **args); 
+void help(); 
+void environment(); 
 int getCommandInput (char *input, char **parsedArgs);  
-// Check ifthe commands are built in the shell or not such as clear () or “directory” 
-int backgroundExecution (char *input);  
+// Check ifthe commands are built in the shell or not such as clear () or “directory”
+
+int normalExecution(char *input);
+
+int backgroundExecution(char *input);  
 //checks ifthe commands are external or built-in using getCommandInput(char *input); and does //external execution ifthe input is not found in built-in commands, also ifredirection or piping happens 
  
-int redirection (char *input); 
+int redirection(char *input); 
 // sends the output to a file rather than screen  
  
 
@@ -69,7 +72,7 @@ This will be used in getCommandInput when if-else statements are used for the bu
 It doesn’t need any inputs since it just uses the printf function. 
 */ 
 void clear() { 
-printf ("033[H 033[2J"); 
+printf ("\e[1;1H\e[2J"); 
 } 
 /* 
 This function calls the exit function which will end the program.  
@@ -77,7 +80,7 @@ And just like clear (), this function doesn’t need any inputs passed in.
 */ 
 void quit() { 
     puts("Exiting the Program"); 
-exit(0); 
+    exit(0); 
 }
 /* 
 The pause () basically pauses the terminal until the user hits the “Enter” key which is “\n” 
@@ -109,7 +112,8 @@ void help () {
         while(character != EOF) { 
         character = fgetc (helpFile); 
         printf("%c", character);  
-        } 
+        }
+        printf("\n"); 
     } 
 fclose(helpFile); 
 } 
@@ -224,8 +228,9 @@ int getCommandInput(char *input, char **parsedArgs) {
         return 0;   
     } 
     if(strcmp (parsedArgs[0], "quit")==0){ 
-        puts("Exiting the Program"); 
-        exit(0); 
+        //quit();
+        puts("Exiting my shell.");
+        exit(0);
     } 
     else if(strcmp(parsedArgs[0], "clr")==0) { 
         clear(); 
@@ -358,20 +363,88 @@ int pipe(char *input){
 
 
 
-int backgroundExecution(char *input){
+int normalExecution(char *input){
     //First pares the input. 
     char **args = parser(input); 
     int index = 0; 
-    char *first[30], *second[30];
-
+    char *normCommand[30];
+    char *path = args[0];
+    
     while(args[index] != NULL){
+        normCommand[index] = args[index];
+        index++;
+    }
+    normCommand[index] = NULL;
 
+    //my shell built-in commands work
+    if(getCommandInput(input,args) == 0){
+        return 0;
+    }
+
+    pid_t pid = fork();
+
+    //If pid is 0 or greater then it has successfully created a child process 
+    if(pid>=0){ //CHILD Process 
+        if(pid == 0){
+            if(execvp(path,normCommand) < 0){
+                puts("\nCommand not found in my shell.");
+            }
+        }
+        else{ //PARENT Process
+            //Wait for child process to finish executing 
+            waitpid(pid,NULL,0);
+        }
+    }
+
+    else{
+        puts("Forking Error!\n");
+    }
+    return 0;
+}
+
+int backgroundExecution(char *input){
+    int index = 0;
+    char **args = parser(input);
+    char *path = args[0];
+    char *backgroundCommand[30];
+
+    while(args[index][0] != '&'){
+        backgroundCommand[index] = args[index];
+        index++;
+    }
+    backgroundCommand[index]==NULL;
+
+    if(getCommandInput(input,args) == 0){
+        return 0;
+    }
+    pid_t pid = fork();
+
+    /*
+    Used the same method of forking from the normal execution.
+    However, there is no wait() for the background execution since it will
+    try to happen at the same time
+    */
+
+    //If pid is 0 or greater then it has successfully created a child process 
+    if(pid>=0){ //CHILD Process 
+        if(pid == 0){
+            if(execvp(path,backgroundCommand) < 0){
+                puts("\nCommand not found in my shell.");
+            }
+        }
+        /*else{ //PARENT Process
+            //Wait for child process to finish executing 
+            int status = 0;
+            wait(&status);
+        }*/
+    }
+
+    else{
+        puts("Forking Error!\n");
     }
 
     return 0;
 }
-
-
 
 
 
@@ -393,32 +466,43 @@ int backgroundExecution(char *input){
 
 int main(){
     char input[1024];
-    
+    puts("My Shell");
     shellPrompt(input);
     
-   /* 
-    //TEST FOR PARSING A STRING
-    puts("Hello");
-    char **parse = parser(input);
-    puts("There");
-    int i = 0;
-    while(parse[i] != '\0'){
-        printf("Token %d : %s\n", i,parse[i]);
-        i++;
-    }
-    i++;
-    puts("Bye");*/
-    char **args = parser(input);
-    //getCommandInput(input, args);
+   
     while(1){
-    
-        getCommandInput(input, args);
+        int index = 0;
+        int inputSize = strlen(input);
 
+        while(input[index] != '\0'){
+            if(input[index+1] == '\0'){
+                int status = normalExecution(input);
+                if(status != 0){
+                    puts("Execution failed.\n");
+                }
+                break; //Break from inner loop
+            }
+            else if(input[inputSize-1] == '&'){
+                int status = backgroundExecution(input);
+                if(status != 0){
+                    puts("Execution failed.\n");
+                }
+                break; //Break from inner loop
+            }
+            index++;
+        }
 
-        shellPrompt(input);
+        shellPrompt(input); //Give shell prompt again until the user quits
     }
-
-
     
     return 0;
 }
+
+
+/*
+1. Look at the currentDirectory function to see what is causing seg fault
+2. Test background execution
+3. Work on redirection and piping
+
+
+*/
