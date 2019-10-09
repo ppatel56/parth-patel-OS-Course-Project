@@ -27,13 +27,18 @@ int getCommandInput (char *input, char **parsedArgs);
 int normalExecution(char *input);
 
 int backgroundExecution(char *input);  
-//checks ifthe commands are external or built-in using getCommandInput(char *input); and does //external execution ifthe input is not found in built-in commands, also ifredirection or piping happens 
+//checks ifthe commands are external or built-in using getCommandInput(char *input); and does 
+//external execution ifthe input is not found in built-in commands, also ifredirection or piping happens 
  
 int redirection(char *input); 
 // sends the output to a file rather than screen  
- 
 
+void createInputFile();
 
+/*
+The shellPrompt basically creates a string array that gets the current working directory and prints it out as myshell is running
+The shellPrompt takes in an input and passes in the fgets() 
+*/
 void shellPrompt(char *input){
     char cwd[1024]; //current working directory
     getcwd(cwd, sizeof(cwd));
@@ -50,15 +55,15 @@ In this function the strtok () is used to delimit the white spaces out of the in
 */  
 char **parser (char *input) { 
     int bufferSize = 1024, index = 0; //for the string token position in tokens [index] 
-    char **tokens = malloc (bufferSize * sizeof(char *)); 
+    char **tokens = malloc(bufferSize * sizeof(char *)); 
     // allocating space for the tokens and its double pointers because elements in the array are  
-    // pointers, the array must be a pointer to a pointer  
+    // pointers, the array must be a pointer to a pointer 
     char *token; // represents a token in the array of tokens  
-    token = strtok (input, " \t\n"); // This  -->  " \t\n" represents the whitespaces that are common 
+    token = strtok(input, " \t\n"); // This  -->  " \t\n" represents the whitespaces that are common 
     while(token != NULL) {  
         tokens [index] = token; 
         // Maybe check ifthere needs to be a reallocation ifthe bufferSize somehow is less than index. 
-        token = strtok (NULL, " \t\n"); // place null terminated \0 at the end of each token 
+        token = strtok(NULL, " \t\n"); // place null terminated \0 at the end of each token 
         index++; 
     } 
     tokens[index] = NULL;
@@ -100,7 +105,7 @@ void pausing() {
 Gets the built-in command list and information on piping, redirection, and external page from README.txt 
 Using fgetc () function to get every character in the file without any trouble whilefscanf () could potentially read in the file incorrectly 
 */ 
-void help () { 
+void help() { 
     FILE *helpFile; 
     char character; 
     helpFile = fopen("README.txt", "r"); 
@@ -110,8 +115,9 @@ void help () {
     else { 
         //Loop till the character has not reached End of File 
         while(character != EOF) { 
-        character = fgetc (helpFile); 
-        printf("%c", character);  
+            character = fgetc(helpFile); 
+            //printf("%c", character);
+            putchar((int)character);  
         }
         printf("\n"); 
     } 
@@ -126,7 +132,9 @@ Assign getenv() to a string pointer then print the string.
 */ 
 void environment () { 
     char *string; 
-    string = (char *)malloc(2000*sizeof(char)); 
+    string = (char *)malloc(2000*sizeof(char));
+    string= getenv("LS_COLORS");
+    printf("\nLS_COLORS=%s", string); 
     string = getenv("HOSTTYPE"); 
     printf("\nHOSTTYPE=%s", string);
     string = getenv("LESSCLOSE"); 
@@ -159,13 +167,9 @@ void environment () {
     printf("\nWSLENV =%s", string);
     string = getenv("LESSOPEN"); 
     printf("\nLESSOPEN =%s\n", string);
-    
-    
-/* 
-This will repeat till all the environment variables are in the function. They will be in the actual program/code. 
-*/ 
  
 } 
+
 /* 
 The function echo () is simple as it will print out the statement after the “echo” i.e. input: echo hello there and the output: hello there 
 Since the input is parsed, the args[0] is already echo, so whatever statement after is args[1] args[2]… 
@@ -183,16 +187,24 @@ void echo (char **args) {
 This function is the equivalent to “ls” which lists the contents (i.e. files) in the current directory. 
 There is a struct dirent from the dirent.h which constructs directory traversal  
 */ 
-void currentDirectory (char **args) { 
+void currentDirectory (char **args) {
     DIR *dir; 
-    struct dirent *dirEntry;  
-    char *directory; //Name of the directory  
-    dir = opendir (directory); // opendir () checks ifdirectory has NULL or not 
+    struct dirent *dirEntry;
+    //char *directory = (char *)malloc(1024*sizeof(char)); //Name of the directory  
+    const char *directory = ".";
+    dir = opendir(directory); // opendir () checks ifdirectory has NULL or not 
     // while there is another item in the directory not looked at yet 
+    if(dir == NULL){
+        puts("Could not open current directory");
+    }
     while((dirEntry = readdir (dir)) != NULL) { 
         printf("%s\t", dirEntry->d_name); //Print out all the contents 
-    } 
+    }
+    printf("\n");
     // The function getcwd() could also be beneficial in getting the current directory  
+    if(dir != NULL){
+        closedir(dir);
+    }
 } 
  
 /* 
@@ -273,10 +285,12 @@ Functions such as fork() for creating a child process, and dup2() which creates 
 int redirection (char *input) { 
     //first parse the input line 
     char **args = parser (input); 
-    int *inputFile; //int is used because of the dup2() passes in inputs 
-    int *outputFile; //int is used because of the dup2() passes in inputs   
-    int index = 0; 
- 
+    int *fileInput; //int is used because of the dup2() passes in inputs 
+    int *fileOutput; //int is used because of the dup2() passes in inputs   
+    int index = 0;
+
+    FILE *inputFile;
+    FILE *outputFile;
     /* 
     Before the loop try to create new child process with fork() and check ifit was successful then continue on with the loop    
     */ 
@@ -296,7 +310,7 @@ int redirection (char *input) {
             //Do multiple steps in writing out to an output file and append contents in the existing file or iffile does not exist then create a new one which will involve even more steps with an if-statement to check ifthe files exits. 
             return 0; // ifthe part was successful 
         } 
-        index += 1;
+        index++;
     } 
     return -1; //iffunction fails, return -1 
 } 
@@ -315,38 +329,176 @@ int piping(char *input){
     char **args = parser(input); 
     int index = 0; 
     char *first[30], *second[30], *pipeSym[1]; // assign the first and second parameters when finding the pipe symbol 
-    /*while(args[index] != "|") { 
-        
-        
-        first[index] = args[index];
-
-        index++; 
-    }
-    pipeSym[index] = "|";
-    index++;
-    while(pipeSym[index-1] == "|" && args[index] != NULL){
-
-    }*/
+    pid_t pid1, pid2; //Process IDs for first argument and second argument respectively
+    //int pid;
+    // an array containing the input and output file descriptors
+    // pipe_file_descs[0] -> read from this
+    // pipe_file_descs[1] -> write to this 
+    int pipeFileDesc[2]; //File descriptors
+    /*char *path = args[0];
+    //NOTE: args[index-2] == second parameter or the command argument after "|" -> first command | second command
+    printf("First Argument: ");
+    int firstIndex = index;
+    int i = 0;
     while(args[index] != NULL){
-
-        first[index] = args[index];
-
-        if(strcmp (args[index], "|")){ 
-        // Try to create the two new child processes using fork() and using dup2(), and execvp(second)   
-        //break at the end of the if-statement
-        //first[index-1] = args[index];
-        //second = args[index+1];
-        break; 
+        
+        if(strcmp(args[index], "|")==0){
+            // Try to create the two new child processes using fork() and using dup 2(), and execvp(second)   
+            //break at the end of the if-statement
+            //first[index-1] = args[index];
+            //second = args[index+1];
+            pipeSym[0] = args[index]; // pipeSym[0] == '|'
+            index++; //increment the index so that the first argument will not get "|" in it's array
+            break; //break out of the loop
+        }  
+        first[i] = args[index];
+        printf("%s ",first[i]);
+        i++;
+        index++;
+    }
+    int secondIndex = index;
+    int j = 0;
+    printf("\n\nSecond Argument: ");
+    //index++; //increment the index to the next element in the array after "|" or AKA the second parameter
+    while(args[index] != NULL){
+        second[j] = args[index];
+        printf("%s ",second[j]);
+        j++;
+        index++;
+    }
+    puts("\n");*/
+    int pipeIndex = 0;
+    for(pipeIndex = 0; pipeIndex < 5; pipeIndex++){
+        if(args[pipeIndex][0] == '|'){
+            break;
         }
-        index++;
     }
-    index++; //increment the index to the next element in the array after "|" or AKA the second parameter
-    while(args[index] != NULL){
-        second[index] = args[index];
-        index++;
+    int i = 0;
+    for(i; i < pipeIndex; i++){
+        first[i] = args[i];
     }
-
+    first[i] = NULL;
+    int j = 0;
+    int k = pipeIndex+1;
+    for(;k<5;k++){
+        second[j] = args[k];
+        j++;
+    }
+    second[j] = NULL;
+    // create pipe
+    puts("About to create a pipe");
+    if (pipe(pipeFileDesc) == 0){
+        //perror("Failed to create pipe!");
+        //exit(-1);
     
+    puts("Finished creating a pipe");
+    pid1 = fork(); //Child Process
+    if(pid1 >= 0){
+        puts("Successful fork 1 creation");
+
+        if(pid1 == 0){
+            pid2 = fork();
+            if(pid2 >= 0){
+                if(pid2 == 0){
+                    puts("Child first");
+                    //close write side of pipe
+                    puts("About write read side of pipe");
+                    close(pipeFileDesc[0]);
+                    puts("Closed write side of pipe");
+                    // redirect stdout to read side of pipe
+                    puts("About redirect stdout to read side of pipe");
+                    dup2(pipeFileDesc[1],1);
+                    close(pipeFileDesc[1]);
+                    printf("command here %s", first[0]);
+                    // printf("command here %s", first);
+                    puts("Redirected stdout to read side of pipe");
+                    if(execvp(first[0], first) < 0){
+                        perror("Could not execute command 2");
+                        exit(-1);
+                    }
+                }
+                else{
+                    //waitpid(pid2,NULL,0);
+                    puts("Child first");
+                    //close read side of pipe
+                    puts("About close read side of pipe");
+                    close(pipeFileDesc[1]);
+                    puts("Closed read side of pipe");
+                    // redirect stdout to write side of pipe
+                    puts("About redirect stdout to write side of pipe");
+                    dup2(pipeFileDesc[0],0);
+                    close(pipeFileDesc[0]);
+                    puts("Redirected stdout to write side of pipe");
+                    if(execvp(second[0], second) < 0){
+                        perror("Could not execute command 1");
+                        exit(-1);
+                    }
+                }
+            }
+            else{
+                perror("fork 2 failed!\n");
+                exit(-1);
+            }
+            /*puts("Child first");
+            //close read side of pipe
+            puts("About close read side of pipe");
+            close(pipeFileDesc[0]);
+            puts("Closed read side of pipe");
+            // redirect stdout to write side of pipe
+            puts("About redirect stdout to write side of pipe");
+            dup2(pipeFileDesc[1],1);
+            close(pipeFileDesc[1]);
+            puts("Redirected stdout to write side of pipe");
+            if(execvp(first[firstIndex], first) < 0){
+                puts("Could not execute command 1");
+            }*/
+        }
+        else{//Parent Process
+            
+           //waitpid(pid1, NULL, 0);
+        }
+        puts("Fork 1 end");
+    
+    }
+    else{
+        perror("fork 1 failed!\n");
+        
+        exit(-1);
+    }
+        close(pipeFileDesc[0]);
+        close(pipeFileDesc[1]);
+    }
+  /*  
+    pid2 = fork(); //Child Process
+    if(pid2 >= 0){
+        puts("Successful fork 2 creation");
+        if(pid2 == 0){
+            puts("Child first");
+            //close write side of pipe
+            puts("About write read side of pipe");
+            close(pipeFileDesc[1]);
+            puts("Closed write side of pipe");
+            // redirect stdout to read side of pipe
+            puts("About redirect stdout to read side of pipe");
+            dup2(pipeFileDesc[0],0);
+            close(pipeFileDesc[0]);
+            puts("Redirected stdout to read side of pipe");
+            if(execvp(second[secondIndex], second) < 0){
+                puts("Could not execute command 2");
+            }
+        }
+        else{//Parent Process
+            waitpid(pid2, NULL, 0);
+        }
+    }
+    else{
+        puts("fork 2 failed");
+    }
+    puts("Fork 2 end");
+*/
+    
+
+
 
 return 0; // return 0 ifsuccessful 
 } 
@@ -447,7 +599,32 @@ int backgroundExecution(char *input){
 }
 
 
+void createInputFile(){
+    FILE *inputFile;
+    char character;
+    char fileName[200];
+    int i = 0;
 
+    while(fileName){
+
+    }
+
+    inputFile = fopen(inputFile, "r"); 
+    if(inputFile == NULL) { 
+    puts("File not found"); 
+    } 
+    else { 
+        //Loop till the character has not reached End of File 
+        while(character != EOF) { 
+            character = fgetc(inputFile); 
+            printf("%c", character);
+            //putchar((int)character);  
+        }
+        printf("\n"); 
+    } 
+    fclose(inputFile); 
+
+}
 
 
 
@@ -466,7 +643,7 @@ int backgroundExecution(char *input){
 
 int main(){
     char input[1024];
-    puts("My Shell");
+    puts("\n---My Shell---\n");
     shellPrompt(input);
     
    
@@ -489,6 +666,27 @@ int main(){
                 }
                 break; //Break from inner loop
             }
+
+            
+            //For piping
+            else if(input[index] == '|'){
+                int status = piping(input);
+                if(status != 0){
+                    puts("Piping failed.\n");
+                }
+            }
+            
+
+            /*
+            For redirection
+            else if(input[index] == '<' || input[index] == '>' || input[index] == '>>'){
+                int status = redirection(input);
+                if(status != 0){
+                    puts("Redirection failed.\n");
+                }
+            }
+
+            */
             index++;
         }
 
@@ -500,9 +698,36 @@ int main(){
 
 
 /*
-1. Look at the currentDirectory function to see what is causing seg fault
-2. Test background execution
-3. Work on redirection and piping
+1. Look at the currentDirectory function to see what is causing seg fault (done)
+
+2. Test background execution (done)
+
+3. Work on piping and redirection 
+
+4. Make input file and function in main to take in arguments on whether
+to take commands from user or text file
+
+*/
+
+
+//EXPLANATION OF TESTING THE PIPING FUNCTION
+/*
+The testing for piping was first making sure that the arguments on either side of the pipe symbol were
+seperated properly in order to perform the forking and execvp parts sucessfully
+
+So I made made a bunch of printf() statements to catch the arguments at each of the loops, there was a trial and error
+about the pipe symbol "|"
+The problem was that the first argument would end up catching the pipe symbol into the array, but it was a simple fix of just increamenting
+the index after pipeSymbol[i] = args[i] at the "|" then breaking the loop for the first argument.
+
+
+*/
+
+/*
+Background Execution:
+
+Make sure that the '&' is taken out of the array when using execvp(array[0], array) either by putting '\0' at the &'s place 
+or make a new array that excludes '&' and pass that into the execvp(newArr[0], newArr)
 
 
 */
