@@ -1,0 +1,69 @@
+Parth Patel
+CIS 3207 - Section 2
+Project 2 - Shell Program
+
+
+-- MY SHELL PROGRAM -- HELP PAGE --
+
+Description:
+The myshell program is a basic Linux shell written in C Program where it takes in eight specific built-in commands, external commands in Linux,
+does piping of two commands, Input/Output Redirection, Normal Execution of built-in and external commands, and background execution of commands.
+
+Built-In Commands: Command - (Description)
+
+clr - clears the screen just like in Linux shell
+
+quit - exits out of the myshell and brings user back to official Linux shell
+
+help - brings up this README file for instructions and lists the built-in commands, how to do pipe, redirection, and background execution.
+
+dir  - lists the contents of the current directory that user is currently on. Such as what files are in the current folder.
+
+cd  -  cd (directory name) command will change the working directory.   
+
+environ - environ will list all the environment variables such as the contents of PATH.
+
+echo - echo (string) will output the string after the echo to the screen or text file if redirection is used.
+
+pause - pause will stop the myshell until user presses the ENTER key.
+
+
+Piping:
+        Pipe does an asynchronous send and block operation. This allows for passing contents of a file to a command to do other tasks.
+        Basically allows you to move information between different parameters and use them together, in this basic shell there are two parameters.
+        The symbol for pipe is "|"
+        Ex: (parameter 1) | (parameter 2) ---> cat out.txt | wc -c
+
+I/O Redirection:
+        I/O Redirection is split into four types for this shell: Input ("<"), Truncate Output (">"), Append Output (">>"), and Mix I/O ("<" and ">") or ("<" and ">>"). 
+        
+        In Input (">"):
+            -Runs the command and passes the input file as input.        
+            -Ex: wc -c < input.txt   ---> gets the number of characters from the input.txt
+        
+        In Truncate Output (">"):
+            -Get the output of the command and truncates it to the named output file. This means that whatever was in the file prior to the command is now
+            erased and replaced with the truncate output command. If file doesn't exist then the command will create it and puts the output inside it.
+            -Ex: dir > output.txt ---> dir's output replaces with the contents of output.txt
+        
+        In Append Output (">>"):
+            -Get the output of the command and append it to the named output file. This means that command's output is added to the exist content in the 
+            existing file or if the file does not exist then the command creates it and appends the output to the file.
+            -Ex: dir >> output.txt ---> dir's output is added to the contents of output.txt
+
+        In Mix I/O:
+            -Uses the both input and output redirection by combining the both concepts
+            -Ex: wc -c < input.txt >> output.txt ---> this will get the number of characters in input.txt and appends them to the output.txt
+
+Background Execution:
+        -This means that the process or command will run in the background by using the "&" at the end of the command
+        -Ex: ls & ---> ls will run in the background and user can still input commands
+        -The background execution should run multiple background processes by using multiple "&" i.e. ls & cat file.txt & echo Hello
+        -However this shell does not run multiple processes in background.
+
+Batchfile:
+        -This shell uses batchfile as an argument. Batchfile contains valid commands. This is done before running the executible file and not after
+        the shell is running.
+        -Ex: ./myshell batchfile ---> runs the commands if they are valid
+
+

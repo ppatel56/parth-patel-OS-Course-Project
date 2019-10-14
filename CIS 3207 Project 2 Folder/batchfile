@@ -1,0 +1,9 @@
+echo Hello World
+dir
+help
+environ
+dir > zzz.txt
+ls >> zzz.txt
+wc -c < zzz.txt
+ls
+quit

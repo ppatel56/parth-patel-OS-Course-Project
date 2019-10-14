@@ -45,9 +45,8 @@ int backgroundExecution(char **input);
 //Checks for piping, I/O redirection, background, built-in commands, and external commands. Then execute the functions  
 int checkAndExecute(char **args);
 
-void createBatchFile();
+void getBatchfile(char *fileName);
 
-int bge(char *input);
 
 int redirection(char **input);
 
@@ -123,10 +122,10 @@ void pausing() {
 Gets the built-in command list and information on piping, redirection, and external page from README.txt 
 Using fgetc () function to get every character in the file without any trouble whilefscanf () could potentially read in the file incorrectly 
 */ 
-void help() { 
+void help(){ 
     FILE *helpFile; 
     char character; 
-    helpFile = fopen("README.txt", "r"); 
+    helpFile = fopen("README", "r"); 
     if(helpFile == NULL) { 
     puts("File not found"); 
     } 
@@ -296,15 +295,18 @@ int builtInCommands(char **parsedArgs){
     } 
  
 /* 
-redirection is to do input/and or output to or from a file. 
-Using strcmp to check ifthere is an element in the array that has the redirection symbols “<”,”>”,”>>” 
-Functions such as fork() for creating a child process, and dup2() which creates new file descriptor, and execvp () launches the external command   
+Redirection is to do input/and or output to or from a file. 
+The checkAndExecute finds the redirection symbols from the input and runs the function if they are found.
+The fileDescriptor is used to help redirect input and output in conjuction with dup() and dup2().
+
+Unfornately, the redirection function doesn't seem to properly work with the fork() and execvp() in the function so normalExecution() was used
+as a result the temp and temp2 using dup() was necessary as it could find the lowest numerical file descriptor, then choose the file descriptor with
+dup2(). However, because of the normalExecution(), using multiple redirection on one line doesn't seem to work.    
 */ 
 
 // Handles I/O redirection.
 int redirection(char** args){
     
-    //int fileDescriptor; 
     int i, j;
     int argsNum = 0;
     int inputPosition = 0;
@@ -315,7 +317,9 @@ int redirection(char** args){
     int temp; 
     int temp2;
     int flag = 1;
-    int fd0,fd1;
+    //int fileDescriptor0,fileDescriptor1;
+    //only one file descriptor was necessary
+    int fileDescriptor;
     // command of the left of redirection symbols.
     char **cmd = malloc(sizeof(char *) * 30);
     if(cmd == NULL) {
@@ -344,7 +348,7 @@ int redirection(char** args){
             argsNum++;
         }
 
-        //Copies args to the left of symbols to buffer as cmd so that left of the 
+        //Use strcpy to copy command to the left of symbols to buffer as cmd so that left of the 
         //first redirection symbol can be used for execution.
         if(argsNum == 0) {
             cmd[j] = (char *) malloc(sizeof(char *) * strlen(args[i]) + 1);
@@ -363,13 +367,14 @@ int redirection(char** args){
     // if only >> symbol
     if(appendPosition != 0) {
         outputFile = appendPosition + 1;
-        if((fd1 = open(args[outputFile], O_WRONLY|O_CREAT|O_APPEND, S_IRWXU|S_IRWXG|S_IRWXO)) == -1){
+        // If file descriptor won't open
+        if((fileDescriptor = open(args[outputFile], O_WRONLY|O_CREAT|O_APPEND, S_IRWXU|S_IRWXG|S_IRWXO)) == -1){
             perror("Error, input file failed to open.");
             exit(1);
         }
-        temp = dup(1);
-        dup2(fd1, 1);
-        close(fd1);    
+        temp = dup(1); //Finds the lowest file descriptor
+        dup2(fileDescriptor, 1);
+        close(fileDescriptor);    
 
         normalExecution(cmd);
         dup2(temp, 1);
@@ -378,13 +383,13 @@ int redirection(char** args){
     // if only ">" symbol 
     else if(truncPosition != 0) {
         outputFile = truncPosition + 1;
-        if((fd1 = open(args[outputFile], O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU|S_IRWXG|S_IRWXO)) == -1){
+        if((fileDescriptor = open(args[outputFile], O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU|S_IRWXG|S_IRWXO)) == -1){
             perror("Error, input file failed to open.");
             exit(1);
         }
         temp = dup(1);
-        dup2(fd1, 1);
-        close(fd1);    
+        dup2(fileDescriptor, 1);
+        close(fileDescriptor);    
 
         normalExecution(cmd);
         dup2(temp, 1);
@@ -396,13 +401,13 @@ int redirection(char** args){
     else if(inputPosition != 0) {
         //puts("In input redirection if statement");
         inputFile = inputPosition + 1;
-        if((fd0 = open(args[inputFile], O_RDONLY, 0)) == -1){
+        if((fileDescriptor = open(args[inputFile], O_RDONLY, 0)) == -1){
             perror("Error, input file failed to open.");
             exit(0);
         }
         temp = dup(0);
-        dup2(fd0, 0);
-        close(fd0);    
+        dup2(fileDescriptor, 0);
+        close(fileDescriptor);    
 
         normalExecution(cmd);
         dup2(temp, 0);
@@ -415,21 +420,21 @@ int redirection(char** args){
         inputFile = inputPosition + 1;
         outputFile = truncPosition + 1;
 
-        if((fd0 = open(args[inputFile], O_RDONLY,0)) == -1) {
+        if((fileDescriptor = open(args[inputFile], O_RDONLY,0)) == -1) {
             puts("Error input file descriptor not opened");
             return;
         }
         temp = dup(0);
-        dup2(fd0, 0);
-        close(fd0);
+        dup2(fileDescriptor, 0);
+        close(fileDescriptor);
 
-        if((fd1 = open(args[outputFile], O_RDWR | O_CREAT | O_TRUNC, S_IRWXU|S_IRWXG|S_IRWXO)) == -1) {
+        if((fileDescriptor = open(args[outputFile], O_RDWR | O_CREAT | O_TRUNC, S_IRWXU|S_IRWXG|S_IRWXO)) == -1) {
             puts("Error output truncation file descriptor not opened");
             return;
         }
         temp2 = dup(1);
-        dup2(fd1, 1);
-        close(fd1);
+        dup2(fileDescriptor, 1);
+        close(fileDescriptor);
 
         normalExecution(cmd);
 
@@ -445,21 +450,21 @@ int redirection(char** args){
         inputFile = inputPosition + 1;
         outputFile = appendPosition + 1;
 
-        if((fd0 = open(args[inputFile], O_RDONLY,0)) == -1) {
+        if((fileDescriptor = open(args[inputFile], O_RDONLY,0)) == -1) {
             puts("Error input file descriptor not opened");
             exit(0);
         }
         temp = dup(0);
-        dup2(fd0, 0);
-        close(fd0);
+        dup2(fileDescriptor, 0);
+        close(fileDescriptor);
 
-        if((fd1 = open(args[outputFile], O_RDWR | O_CREAT | O_APPEND, S_IRWXU|S_IRWXG|S_IRWXO)) == -1) {
+        if((fileDescriptor = open(args[outputFile], O_RDWR | O_CREAT | O_APPEND, S_IRWXU|S_IRWXG|S_IRWXO)) == -1) {
             puts("Error output append file descriptor not opened");
             exit(0);
         }
         temp2 = dup(1);
-        dup2(fd1, 1);
-        close(fd1);
+        dup2(fileDescriptor, 1);
+        close(fileDescriptor);
 
         normalExecution(cmd);
         
@@ -475,7 +480,6 @@ int redirection(char** args){
     }
     return 0;
 }
-
 
  
 /* 
@@ -711,75 +715,36 @@ int backgroundExecution(char **args){
 }
 
 
-int bge(char *input){
-    int index = 0;
-    char **args = parser(input);
-    char *path = args[0];
-    char *backgroundCommand[50];
-    
-    char *argv[50]; // testing the theory
-    int status;
-    int size; 
-    for(size=0; args[size]!=NULL; size++);
-    if(builtInCommands(args) == 0){
-        return 0;
-    }
 
-    while(args[index] != NULL){
-        argv[index] = args[index];
-        /*if(argv[index][0] != '&'){
-            argv[index] = args[index];
-        }*/
-        if(argv[index][0] == '&'){
-            pid_t pid = fork();
-            if(pid >= 0){
-                if(pid == 0){
-                    if(execvp(argv[0],argv) < 0){
-                        puts("Command Error!");
-                    }
-                    else if(execvp(argv[0],argv)==0){
-                        memset(argv,NULL,size);
-                    }
-                }
-            }
-            else{
-                puts("Forking Error!");
-            }
+
+
+/*
+Unfortunately the batchfile doesn't seem to work properly with the normalExecution() function in the checkAndExectue() function.
+While echo kinda works with the first character missing, the redirection with files do work. However, it seems the external commands
+and built-in commands are not working.  
+*/
+void getBatchfile(char *fileName){
+    char input[1024];
+    int exitFlag = 0;
+    FILE *filePtr = fopen(fileName, "r");
+        if(filePtr == NULL){
+            puts("Error in opening file");
+            return 0;
         }
-        index++;
-    } 
-    return 0;
-}
-
-
-
-
-
-void createBatchFile(){
-    FILE *inputFile;
-    char character;
-    char fileName[200];
-    int i = 0;
-
-    while(fileName){
-
-    }
-
-    inputFile = fopen(inputFile, "r"); 
-    if(inputFile == NULL) { 
-        puts("File not found"); 
-    } 
-    else { 
-        //Loop till the character has not reached End of File 
-        while(character != EOF) { 
-            character = fgetc(inputFile); 
-            printf("%c", character);
-            //putchar((int)character);  
+        
+        while(fgets(input, 1024, filePtr) && exitFlag == 0){
+            printf("string: %s", input); //Checking the commands passed into the 
+            if(input[strlen(input)-1] == '\n'){
+                input[strlen(input)-1] = '\0'; //null terminate command on each line
+                char **args = parser(input);
+                exitFlag = checkAndExecute(args); 
+            }
+            if(strcmp(input, "quit") == 0){
+                exit(0);
+            }
+            
         }
-        printf("%s","\n");
-    } 
-    fclose(inputFile); 
-
+        fclose(filePtr);
 }
 
 
@@ -861,55 +826,21 @@ int checkAndExecute(char **input) {
 }
 
 
-int main(){
-    puts("\n------MY SHELL------\n");
-    char input[1024];
-    int exitFlag = 0;
-    shellPrompt(input);
-    
-    while(exitFlag == 0){
-        char **args = parser(input);
-        exitFlag = checkAndExecute(args);
-        shellPrompt(input);
+int main(int argc, char *argv[]){
+    if(argc == 2){
+        getBatchfile(argv[1]);
     }
-
+    else if (argc < 2){
+        puts("\n------MY SHELL------\n");
+        char input[1024];
+        int exitFlag = 0;
+        shellPrompt(input);
+        
+        while(exitFlag == 0){
+            char **args = parser(input);
+            exitFlag = checkAndExecute(args);
+            shellPrompt(input);
+        }
+    }
     return 0;
 }
-
-
-
-/*
-1. Look at the currentDirectory function to see what is causing seg fault (done)
-
-2. Test background execution (done)
-
-3. Work on piping and redirection (done) and (almost done, need to take in input AND output on SAME Line)
-
-4. Make input file and function in main to take in arguments on whether
-to take commands from user or text file
-
-*/
-
-
-//EXPLANATION OF TESTING THE PIPING FUNCTION
-/*
-The testing for piping was first making sure that the arguments on either side of the pipe symbol were
-seperated properly in order to perform the forking and execvp parts sucessfully
-
-So I made made a bunch of printf() statements to catch the arguments at each of the loops, there was a trial and error
-about the pipe symbol "|"
-The problem was that the first argument would end up catching the pipe symbol into the array, but it was a simple fix of just increamenting
-the index after pipeSymbol[i] = args[i] at the "|" then breaking the loop for the first argument.
-
-
-*/
-
-/*
-Background Execution:
-
-Make sure that the '&' is taken out of the array when using execvp(array[0], array) either by putting '\0' at the &'s place 
-or make a new array that excludes '&' and pass that into the execvp(newArr[0], newArr)
-
-
-*/
-
