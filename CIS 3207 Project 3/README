@@ -1,1 +1,27 @@
+Parth Patel
+CIS 3207 - Section 2
+Project 3 - Network Spell Checker
 
+Description: 
+
+The Network Spell Checker Program is networking program in which multiple clients connect to one server 
+and send a string to the server. The server would then process those inputs from the clients and determine 
+if each individual string's spelling is "correct" or "incorrect".
+
+Because there are multiple clients connecting to the server and sending their own string, the server needs 
+multiple worker threads to help check if the strings are spelled correctly. This way, the user wouldn't have
+to wait too long if there was only one thread taking in multiple inputs. The number of worker threads corresponds
+to the number of clients in the program, which is four. There is also another thread in the program called the 
+log thread which takes the final string message "word is correct(incorrect) spelling" to a log text file.
+The final thread is the main thread of the program, or the original thread.
+
+There are two queues used in the program, a connection queue and a log queue. The reason why C++ is used for this project
+is because there is a provided queue library in the language. The connection queue is a queue of ints in where all of the
+client sockets will be stored. A worker thread will take a client socket and get the string that client sends and checks 
+its spelling then stores the message onto the log queue.
+
+Since we're dealing with a multi-threaded program, there will be problems in concurrency. So in order to avoid the
+problems such as race condition, the program has locks and conditional variables. 
+
+
+Testing Process:
