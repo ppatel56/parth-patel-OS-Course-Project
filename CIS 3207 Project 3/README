@@ -38,12 +38,20 @@ condition variable if its full or empty.
 Testing Process:
 
 The testing of the program happened multiple times for each characteristic of the program. In the beginning, I tested out the
-code provided in Bryant and O'Hallaron's "Computer Systems a Programmer's Perspective" for open_listenfd
+code provided in Bryant and O'Hallaron's "Computer Systems a Programmer's Perspective" for open_listenfd() function so that I can use
+it to connect with the clients and take in their inputs in the project. Once I tested how the basics of network programming works,
+I then used the open_listenfd in my program.
 
+I then tested the taking in the words from the dictionary text file and putting them into an array so that the input strings can
+use it to compare the spelling. This part of the testing phase was the most simplest as it is taking words from a text file and 
+place them to an array. Then pass that array and the input into a function where the input is compared to each word in the array.
+I later changed these two functions to adapt to the C++'s std::string type and std::vectors (arrays). There was also a code provided by
+a TA where the a server function recv() in which the parameter is the input from client and returns the bytesReturn. This part is what
+is passed into the checkWord() function.
 
-
-
-
-
-
-
+Testing multiple threads was done with testing simple functions for the threads. Such as having a thread printing "Hello World."
+Most of knowing how threads work came from reading the "Three Easy Pieces" textbook as they show the creation of threads as well as
+how to use the locks and conditional variables. The Chapter 31 shows the Producer/Consumer Problem in which this program tackles with,
+pushing a client socket/log message onto connection queue/log queue respectively which is a producer; popping off 
+client socket/log message onto connection queue/log queue respectively which is a consumer. The book clearly explains where to place the
+locks and conditional variables in order to avoid problems.
