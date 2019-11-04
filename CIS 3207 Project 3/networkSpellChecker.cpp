@@ -24,6 +24,7 @@ std::vector<std::string> openDictionary(std::string filename);
 std::string checkWord(std::string word, std::vector<std::string> & listOfStr, int clientSocket);
 void *workerThread(void *args);
 void *logThread(void *args);
+int open_listenfd(int port);
 
 std::vector<std::string> list; //contains the dictionary words
 
