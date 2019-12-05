@@ -22,17 +22,13 @@
 
 using namespace std;
 
-/*
-#define BLOCKS 4096         // Number of blocks
-#define BLOCK_SIZE 512      // Size of each block
-#define MAX_ENTRIES 8       // Max number of entries per block
-*/
+
 #define BLOCKS 8192          //amount of data blocks reserved for file metadata
 #define MAX_ENTRIES 8       // Max number of entries per block
 #define BLOCK_SIZE 4096
 #define MAX_NUM_FILES 256
 // Indicate the status of the file entry
-#define FREE 0
+#define EMPTY 0
 #define BUSY 1
 
 //The number of file descriptors that can exist 64, 0-63 inclusive
@@ -44,26 +40,28 @@ using namespace std;
 #define FIRST_FILE_INDEX 0
 #define LAST_FILE_INDEX 255
 
+#define FILE_TYPE 0
+#define DIR_TYPE 1
 //cpp string, append to the string, call string temp, block_write(0,(cstring cast) temp)
 
-// Entry in the file allocation table (FAT)
-typedef struct FILE_ALLOCATION_ENTRY{
+// Entry in the FAT
+typedef struct{
     short status;
-    short next;
+    short nextBlock;
 } fileEntry;
 
 // FAT structure - 8192 number of fileEntry in the FAT
-typedef struct FILE_ALLOCATION_TABLE{
+typedef struct{
     fileEntry file[BLOCKS];
 } FAT;
 
-// Entry in directory table structure - 64 byes each
-typedef struct ENTRY{
+// Entry in directory table structure 
+typedef struct {
     char fileName[15]; // 15 bytes (14 filename + terminator)
-    unsigned short type; // 1 byte
-    unsigned short fileSize; // 2 bytes
-    unsigned short startingIndex; // 2 bytes
-    unsigned short fileDes; //2 bytes
+    unsigned short type; // determines if the entry is a file (0) or directory (1)
+    unsigned short fileSize; // size of the file
+    unsigned short startingIndex; // index of the file
+    unsigned short fileDes; // file descriptor
 } Entry;
 
 // Directory Entry Table. Each can hold up to 8 entries
@@ -83,13 +81,6 @@ typedef struct DATA_BLOCKS{
 
 
 
-
-
-
-
-
-
-
 //function prototypes
 int make_fs(char* disk_name);
 int mount_fs(char* disk_name);
@@ -105,22 +96,21 @@ int fs_get_filesize(int fildes);
 int fs_lseek(int fildes, off_t offset);
 int fs_truncate(int fildes, off_t offset);
 
-void create_fs(FAT *fat, Entry *root);
 
-
+//Helper functions 
 void updateValue(unsigned short *oldValue, unsigned short newValue);
 
-short findFreeBlock(FAT * fat);
-short findFreeEntry(directory *dir);
-int findFileOffset(directory * dir, int file);
-int findFileEntry(directory * dir, char * fileName);
+short findAvailableBlock(FAT *fat);
+short findAvailableEntry(directory *dir);
+int findFileOffset(directory *dir, int file);
+int findFileEntry(char *fileName, directory *dir);
 
 void writeForFile(char *fileName);
 void readFromFile(char *fileName);
 //Shell functions
 void shellPrompt(char *input);
 char **shellParser (char *input);
-
+char **pathParser(char *input);
 int builtInCommands(char **input);
 
 // Directory stack functions - navigating directory entries
@@ -128,22 +118,27 @@ int isEmpty();
 int isFull();
 int peek();
 int pop();
-void push(int dirBlock);
+void push(int directoryBlock);
+void printStack();
+int getNumEntries();
 int changeDirectory(char *directoryName);
 
+
+//used for the unmount process, it is where the entries are stored
+//in order to be parsed back by the mount_fs
 string tempStr;
 
-// Directory stack
-int directoryStack[BLOCKS];
-int top = 0;
+// Directory stack - where the directories will stored in order to change directories  
+int directoryStack[MAX_NUM_FILES]; //since directories are technically file
 int topOfStack = 0;
 
+int fileDescriptor;
 
 FAT *fat;
 DATA *Data;
 Entry *root;
 
-//FILE_DESCRIPTOR  *descriptors;
+
 
 /*
 
@@ -168,11 +163,11 @@ int make_fs(char *diskName){
     root = (Entry*)malloc(sizeof(Entry));
     
     fat->file[0].status = BUSY;
-    fat->file[0].next = -1;
+    fat->file[0].nextBlock = -1;
 
     updateValue(&(root->fileSize), 0);
     updateValue(&(root->startingIndex), 0);
-    updateValue(&(root->type), 1);
+    updateValue(&(root->type), DIR_TYPE);
     
     
     //char *bufferForRoot = (char*) calloc(BLOCK_SIZE, sizeof(char));
@@ -214,7 +209,7 @@ int unmount_fs(char *diskName){
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
     // This was admittedly not a good way to find each entry file as it will 
     // loop through MAX_ENTRIES-times despite only testing with 1 file.
-    for (i = 0; i < 1; i++){
+    for (i = 0; i < MAX_ENTRIES; i++){
         tempStr += '-';
         tempStr += dir1->entry->fileName;
         tempStr += '*';
@@ -238,21 +233,21 @@ int unmount_fs(char *diskName){
 }
 
 
-
+// print out the the string that holds the entries and their metadata
 void printStr(std::string temp){
     cout << temp << endl;
 }
 
-// Update METADATA
+// Update the metadata for the entries
 void updateValue(unsigned short *oldValue, unsigned short newValue){
     *oldValue = newValue;
 }
 
-
-short findFreeBlock(FAT *fat){
+// Find the available block available in the FAT so 
+short findAvailableBlock(FAT *fat){
     short i;
     for (i = 1; i < BLOCKS; i++){
-        if (fat->file[i].status == FREE){
+        if (fat->file[i].status == EMPTY){
             return i;
         }
     }
@@ -260,7 +255,7 @@ short findFreeBlock(FAT *fat){
 }
 
 
-short findFreeEntry(directory *dir1){
+short findAvailableEntry(directory *dir1){
     short i;
     for (i = 0; i < MAX_ENTRIES; i++){
 
@@ -277,8 +272,8 @@ int findFileOffset(directory *dir1, int file){
     int startIndex = dir1->entry[file].startingIndex;
     int count = 0;
 
-    while (fat->file[startIndex].next != -1) {
-        startIndex = fat->file[startIndex].next;
+    while (fat->file[startIndex].nextBlock != -1) {
+        startIndex = fat->file[startIndex].nextBlock;
         count++;
     }
 
@@ -287,11 +282,11 @@ int findFileOffset(directory *dir1, int file){
 }
 
 
-int findFileEntry(directory * dir1, char * fileName){
+int findFileEntry(char *fileName, directory *dir1){
 
     int i;
     for (i = 0; i < MAX_ENTRIES; i++){
-        if ( ((strcmp(dir1->entry[i].fileName, fileName)) == 0)  && (dir1->entry[i].type == 0) && (dir1->entry[i].startingIndex != 0)){
+        if ( ((strcmp(dir1->entry[i].fileName, fileName)) == 0)  && (dir1->entry[i].type == FILE_TYPE) && (dir1->entry[i].startingIndex != 0)){
             return i;
         }
     }
@@ -307,12 +302,12 @@ int fs_create(char *fileName){
     directory *dir1 = (directory *)malloc(sizeof(directory));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
 
-    short freeBlock = findFreeBlock(fat);
+    short freeBlock = findAvailableBlock(fat);
     fat->file[freeBlock].status = BUSY;
-    fat->file[freeBlock].next = -1;
+    fat->file[freeBlock].nextBlock = -1;
 
 
-    short freeEntry = findFreeEntry(dir1);
+    short freeEntry = findAvailableEntry(dir1);
 
 
     puts(" File's Metadata:");
@@ -326,8 +321,9 @@ int fs_create(char *fileName){
     updateValue(&dir1->entry[freeEntry].startingIndex, freeBlock);
     printf(" Starting index: %d\n", dir1->entry[freeEntry].startingIndex);
 
-    updateValue(&dir1->entry[freeEntry].type, 0); //type is file
+    updateValue(&dir1->entry[freeEntry].type, FILE_TYPE);
 
+    updateValue(&dir1->entry[freeEntry].fileDes, -1);
     memcpy(&(Data->blocks[peek()]), dir1, sizeof(*dir1));
     char *buf = (char *)dir1;
     block_write((int)freeBlock, buf);
@@ -336,23 +332,22 @@ int fs_create(char *fileName){
 }
 
 
-
 int fs_mkdir(char * dirName){
 
     printf(" Creating directory: %s\n", dirName);
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
 
-    short freeBlock = findFreeBlock(fat);
+    short freeBlock = findAvailableBlock(fat);
     fat->file[freeBlock].status = BUSY;
-    fat->file[freeBlock].next = -1;
+    fat->file[freeBlock].nextBlock = -1;
 
-    short freeEntry = findFreeEntry(dir1);
-
+    short freeEntry = findAvailableEntry(dir1);
+    
     updateValue(&dir1->entry[freeEntry].fileSize, 0);
     updateValue(&dir1->entry[freeEntry].startingIndex, freeBlock);
-    printf("\n\n\nStarting Index: %d\n\n\n", dir1->entry[freeEntry].startingIndex);
-    updateValue(&dir1->entry[freeEntry].type, 1); //type is 1 which is directory
+    printf(" Starting Index: %d\n", dir1->entry[freeEntry].startingIndex);
+    updateValue(&dir1->entry[freeEntry].type, DIR_TYPE); //type is 1 which is directory
     
     
     strncpy(dir1->entry[freeBlock].fileName, dirName, sizeof(dirName));
@@ -362,6 +357,51 @@ int fs_mkdir(char * dirName){
     return 0;
 }
 
+int fs_open(char *fileName){
+    
+    if(fileName == NULL){
+        return -1;
+    }
+    directory *dir1 = (directory *)malloc(sizeof(*dir1));
+    memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
+
+    int i;
+    for(i = 0; i< MAX_FDS; i++){
+        if(dir1->entry->fileDes == -1 && strcmp(dir1->entry->fileName, fileName) == 0){
+            dir1->entry->fileDes = i;
+            memcpy(&(Data->blocks[peek()]), dir1, sizeof(*dir1));
+            return dir1->entry->fileDes;
+        }
+    }
+
+    return -1;
+}
+
+int fs_close(int filedes){
+    if(filedes < FIRST_FD || filedes >LAST_FD){
+        return -1;
+    }
+    if(filedes == NULL){
+        return -1;
+    }
+    directory *dir1 = (directory *)malloc(sizeof(*dir1));
+    memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
+
+    int i;
+    for(i = 0; i< MAX_FDS; i++){
+        if(dir1->entry->fileDes != -1){
+            dir1->entry->fileDes = -1;
+            memcpy(&(Data->blocks[peek()]), dir1, sizeof(*dir1));
+        }
+    }
+    return 0;
+}
+
+
+int fs_get_fileSize(int filedes){
+    directory *dir1 = (directory *)malloc(sizeof(*dir1));
+    return 0;
+}
 
 
 int fs_delete(char *fileName){
@@ -371,7 +411,7 @@ int fs_delete(char *fileName){
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
 
 
-    int i = findFileEntry(dir1, fileName);
+    int i = findFileEntry(fileName, dir1);
     if (i == -1){
         puts(" File not found");
         return -1;
@@ -381,14 +421,14 @@ int fs_delete(char *fileName){
         int block = dir1->entry[i].startingIndex;
 
 
-        while (fat->file[block].next != -1){
-            int temp = fat->file[block].next;
-            fat->file[block].status = FREE;
-            fat->file[block].next = -1;
+        while (fat->file[block].nextBlock != -1){
+            int temp = fat->file[block].nextBlock;
+            fat->file[block].status = EMPTY;
+            fat->file[block].nextBlock = -1;
             block = temp;
         }
-        fat->file[block].status = FREE;
-        fat->file[block].next = -1;
+        fat->file[block].status = EMPTY;
+        fat->file[block].nextBlock = -1;
 
         updateValue(&dir1->entry[i].fileSize, 0);
         updateValue(&dir1->entry[i].startingIndex, 0);
@@ -420,11 +460,11 @@ int fs_read(int filedes,void *buf,size_t nbytes){
         
 
 
-        while(fat->file[startBlock].next != -1){
+        while(fat->file[startBlock].nextBlock != -1){
             memset(tempBuf, '\0', sizeof(tempBuf));
             memcpy(tempBuf, Data->blocks[startBlock].sect, BLOCK_SIZE);
             strcat(buf, tempBuf);
-            startBlock = fat->file[startBlock].next;
+            startBlock = fat->file[startBlock].nextBlock;
         }
 
         int offset = findFileOffset(dir1, filedes);
@@ -432,7 +472,7 @@ int fs_read(int filedes,void *buf,size_t nbytes){
         memcpy(tempBuf, Data->blocks[startBlock].sect, offset);
         strcat(buf, tempBuf);
 
-        block_read(startBlock, buf);
+        block_read(startBlock, tempBuf);
         printf("%s\n", buf);
     }
     memcpy(&(Data->blocks[peek()]), dir1, sizeof(*dir1));
@@ -442,12 +482,12 @@ int fs_read(int filedes,void *buf,size_t nbytes){
 void readFromFile(char *fileName){
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
-    int filedes = findFileEntry(dir1, fileName);
+    int filedes = findFileEntry(fileName, dir1);
     
     char buf[1024] = "";
     
     size_t len = strlen(buf);
-    fs_read(filedes, buf, len);
+    fs_read(filedes, (void *)buf, len);
 }
 
 
@@ -470,9 +510,9 @@ int fs_write(int filedes, void* buf, size_t nbyte){
     else{
 
         int startingBlock = dir1->entry[filedes].startingIndex;
-        while (fat->file[startingBlock].next != -1){
+        while (fat->file[startingBlock].nextBlock != -1){
 
-            startingBlock = fat->file[startingBlock].next;
+            startingBlock = fat->file[startingBlock].nextBlock;
         }
 
         int bufferLength = strlen((char*)buf);
@@ -484,28 +524,35 @@ int fs_write(int filedes, void* buf, size_t nbyte){
             printf(" Offset: %d\n", fileOffset);
 
             //int n = (bufLength < (BLOCK_SIZE - offset)) ? bufLength : BLOCK_SIZE - offset;
-            int blockNum;
+            int blockNumber;
             if(bufferLength < (BLOCK_SIZE - fileOffset)){
-                blockNum = bufferLength;
+                blockNumber = bufferLength;
             }
             else{
-                blockNum = BLOCK_SIZE - fileOffset;
+                blockNumber = BLOCK_SIZE - fileOffset;
             }
-            printf(" Block Number: %d\n", blockNum);
+            printf(" Block Number: %d\n", blockNumber);
 
-            strncpy(Data->blocks[startingBlock].sect + fileOffset, (char *)buf + (strlen((char*)buf) - bufferLength), blockNum);
+            strncpy(Data->blocks[startingBlock].sect + fileOffset, (char *)buf + (strlen((char*)buf) - bufferLength), blockNumber);
             
-            updateValue(&dir1->entry[filedes].fileSize, blockNum + dir1->entry[filedes].fileSize);
+            updateValue(&dir1->entry[filedes].fileSize, blockNumber + dir1->entry[filedes].fileSize);
+            char *strBuf = (char *)malloc(sizeof(nbyte+1));
+            strcpy(strBuf, (char *)buf);
+            
             
             printf(" Filesize: %d\n", dir1->entry[filedes].fileSize);
-            bufferLength = bufferLength - blockNum;
+            
+            bufferLength = bufferLength - blockNumber;
+            
+            int freeBlock = findAvailableBlock(fat);
 
-            if ((fileOffset + blockNum) == BLOCK_SIZE){
+            block_write(freeBlock, strBuf);
+            if ((fileOffset + blockNumber) == BLOCK_SIZE){
 
-                int freeBlock = findFreeBlock(fat);
-                fat->file[startingBlock].next = freeBlock;
+                
+                fat->file[startingBlock].nextBlock = freeBlock;
                 fat->file[freeBlock].status = BUSY;
-                fat->file[freeBlock].next = -1;
+                fat->file[freeBlock].nextBlock = -1;
                 startingBlock = freeBlock;
             }
         }
@@ -520,7 +567,7 @@ void writeForFile(char *fileName){
     
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
-    int filedes = findFileEntry(dir1, fileName);
+    int filedes = findFileEntry(fileName, dir1);
     
     char buf[1024] = "";
     printf("\nWrite to a file: ");
@@ -555,26 +602,57 @@ void push(int directoryBlock){
     } 
     else {
         topOfStack = topOfStack + 1;
-        directoryStack[top] = directoryBlock;
+        directoryStack[topOfStack] = directoryBlock;
     }
+}
+
+
+//Print the whole directory stack
+void printStack(){
+    puts("\nDIRECTORY STACK: \n");
+    int loop;
+    int numEntries;
+    //getting the size of the array or stack
+    int size = sizeof(directoryStack)/sizeof(int);
+    for(loop = 0; loop < size; loop++){
+        printf("%d ", directoryStack[loop]);
+    }
+    numEntries = getNumEntries();
+    printf("\n\nNumber of entries: %d\n\n", numEntries);
+}
+
+//get the number of entries that are currently in the stack
+int getNumEntries(){
+    int count = 0;
+    int i = 0;
+    int size = sizeof(directoryStack)/sizeof(int);
+    for(i = 0; i < size; i++){
+        if(directoryStack[i] > 0){
+            count++;
+        }
+    }
+    //becuase root directory is in beginning as a zero
+    count+=1; 
+    return count;
 }
 
 //Swith between directories in the file system just like a regular linux terminal.
 //In order to do so in the file system, the directory stack helps changing to a 
 //new directory by pushing an element's startingIndex from the directory entry table. 
 int changeDirectory(char *directoryName){
-
+    //If the user types "cd .." the function will then pop off the current directory from the 
+    //directory stack and then point to the next directory on the stack which is the previous directory
     if (strcmp(directoryName, "..") == 0){
         pop();
         return 1;
     }
-    
+    //initialize space for a directory value with size of the value
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
 
 
     for (int i = 0; i < MAX_ENTRIES; i++){
-        if ((strcmp(directoryName, dir1->entry[i].fileName) == 0) && (dir1->entry[i].type == 1)){
+        if ((strcmp(directoryName, dir1->entry[i].fileName) == 0) && (dir1->entry[i].type == DIR_TYPE)){
             push(dir1->entry[i].startingIndex);
             return 1;
         }
@@ -595,6 +673,23 @@ char **shellParser (char *input){
         tokens [index] = token; 
         // Maybe check ifthere needs to be a reallocation ifthe bufferSize somehow is less than index. 
         token = strtok(NULL, " \t\n"); // place null terminated \0 at the end of each token 
+        index++; 
+    } 
+    tokens[index] = NULL;
+    return tokens; 
+}
+
+char **pathPaser (char *input){ 
+    int bufferSize = 1024, index = 0; //for the string token position in tokens [index] 
+    char **tokens = (char **)malloc(bufferSize * sizeof(char *)); 
+    // allocating space for the tokens and its double pointers because elements in the array are  
+    // pointers, the array must be a pointer to a pointer 
+    char *token; // represents a token in the array of tokens  
+    token = strtok(input, " /"); // This  -->  " \t\n" represents the whitespaces that are common 
+    while(token != NULL) {  
+        tokens [index] = token; 
+        // Maybe check ifthere needs to be a reallocation ifthe bufferSize somehow is less than index. 
+        token = strtok(NULL, " /"); // place null terminated \0 at the end of each token 
         index++; 
     } 
     tokens[index] = NULL;
@@ -635,15 +730,24 @@ int builtInCommands(char **parsedArgs){
     else if(strcmp(parsedArgs[0], "fs_mkdir") == 0){
         fs_mkdir(parsedArgs[1]);
     }
-    else if(strcmp(parsedArgs[0], "unmount_fs")){
+    else if(strcmp(parsedArgs[0], "unmount_fs") == 0){
         unmount_fs(parsedArgs[0]);
     }
-    else if(strcmp(parsedArgs[0], "printStr")){
+    else if(strcmp(parsedArgs[0], "printStr") == 0){
         printStr(tempStr);
     }
-    /*else if(strcmp(parsedArgs[0], "mount_fs")){
+    /*else if(strcmp(parsedArgs[0], "mount_fs") == 0){
         mount_fs(parsedArgs[1]);
     }*/
+    else if(strcmp(parsedArgs[0], "fs_open") == 0){
+        fileDescriptor = fs_open(parsedArgs[1]);
+    }
+    else if(strcmp(parsedArgs[0],"fs_close") == 0){
+        fs_close(fileDescriptor);
+    }
+    else if(strcmp(parsedArgs[0], "getSize")){
+        fs_get_fileSize(fileDescriptor);
+    }
     
     // if the function fails, return -1 
     return -1; 
@@ -664,47 +768,24 @@ void shellPrompt(char *input){
 
 
 
-
-
-
-
-
-
-
-
-
-
 int main(){
-    char diskName[15] = "DISK";
+    char diskName[15] = "TESTDRIVE";
     
     puts("\n------MY FILE SYSTEM------\n");
 
-    directoryStack[top] = 0;
+    directoryStack[topOfStack] = 0;
 
     make_fs(diskName);
 
-    /*char input[1024];
-    int exitFlag = 0;
+    char input[1024];
     shellPrompt(input);
     int count = 0;
     while(1){
         char **args = shellParser(input);
-        //exitFlag = checkAndExecute(args, data, fat);
         builtInCommands(args);
         free(args);
         shellPrompt(input);
-    }*/
-    char dirName[15] = "dir1";
-    fs_mkdir(dirName);
-    changeDirectory(dirName);
-    char fileName[15] = "file.txt";
-    //createFile(fat, Data, fileName);
-    fs_create(fileName);
-    //char buf[6] = "Hello";
-    //writeFile(fat, Data, fileName, buf);
-    writeForFile(fileName);
-    readFromFile(fileName);
-    unmount_fs(diskName);
-    printStr(tempStr);
+    }
+   
     return 0;
 }
