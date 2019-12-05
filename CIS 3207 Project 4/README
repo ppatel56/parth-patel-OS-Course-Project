@@ -1,0 +1,66 @@
+Parth Patel
+12/05/2019
+CIS 3207 - Section 2
+Project 4 - Simple File System
+
+Introduction:
+
+The goal of the project is to implement a simple file system on top of a virtual disk. The program will use quite a few system calls
+such as open, read, and write.
+
+The virtual disk is actually a single file that is stored on the "real" file system provided by the OS. 
+
+Two files were provided to us to help create, open, close a disk as well as read and write blocks in the virtual disk. The files were
+disk.c and disk.h.
+
+The disk has 16,384 blocks and half of that was for FAT and the other for data section for metadata information. There could only be 256 
+files with each file being only 4096 (4KB).
+
+
+
+Implementation:
+
+The project required to make a set of functions to manipulate files and directories on the virtual disk. 
+
+int make_fs(char* disk_name);
+
+int mount_fs(char* disk_name);
+
+int unmount_fs(char* disk_name);
+
+int fs_open(char* name);
+
+int fs_close(int fildes);
+
+int fs_create(char *name);
+
+int fs_delete(char* name);
+
+int fs_mkdir(char* name);
+
+int fs_read(int fildes, void* buf, size_t nbyte);
+
+int fs_write(int fildes, void* buf, size_t nbyte);
+
+int fs_get_filesize(int fildes);
+
+int fs_lseek(int fildes, off_t offset);
+
+int fs_truncate(int fildes, off_t offset);
+
+
+The project required the use of structs, mainly the directory entry and FAT. I ended up with 6 typedef structs such as FAT, Entry, directory,
+fileEntry, dataBlocks, and DATA. 
+
+The FAT struct contained the fileEntry array so each file entry would be kept tracked by the FAT, and the fileEntry only contained status and
+next block. The Entry had the metadata information of the directory entry such as name or file size. The directory struct contained an array
+of Entries. The dataBlock was an array of section and the DATA was an array of dataBlock.
+
+
+Testing:
+The testing processes involved getting used to the structs and see what stuff works with regards to how to manipulate the files. There were
+some revisions with the struct in order to make sense of what was going on with the project. Then there was spending some time trying to get 
+used to using the disk.c functions especially the block_read and block_write functions. 
+
+
+Problems:
