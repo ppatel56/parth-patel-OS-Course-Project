@@ -278,6 +278,11 @@ short findAvailableEntry(directory *dir1){
     return -1;
 }
 
+/*Finding the file offset by getting the file size and file's index.
+* By iterating through the FAT using the file's index till it reaches 
+* the next block value of -1.
+* Then the offset of file's size - (BLOCK_SIZE*count) is returned.
+*/
 int findFileOffset(directory *dir1, int file){
 
     int sizeOfFile = dir1->entry[file].fileSize;
@@ -292,20 +297,29 @@ int findFileOffset(directory *dir1, int file){
     return sizeOfFile-(BLOCK_SIZE*count);
 }
 
-
+// To find a file entry, the function iterates through the the directory till MAX_ENTRIES.
+// Once the name, type, and index of directory entry matches the file name, type file, and non-zero index;
+// return that index
 int findFileEntry(char *fileName, directory *dir1){
 
-    int i;
-    for (i = 0; i < MAX_ENTRIES; i++){
-        if ( ((strcmp(dir1->entry[i].fileName, fileName)) == 0)  && (dir1->entry[i].type == FILE_TYPE) && (dir1->entry[i].beginningIndex != 0)){
-            return i;
+    int index;
+    for (index = 0; index < MAX_ENTRIES; index++){
+        if ( ((strcmp(dir1->entry[index].fileName, fileName)) == 0)  && (dir1->entry[index].type == FILE_TYPE) && (dir1->entry[index].beginningIndex != 0)){
+            return index;
         }
     }
     return -1;
 }
 
 
-
+/*The fs_create function creates a file. 
+* The directory is first initialized, then get metadata from the data block using memcpy.
+* The metadata's address is copied into directory's address.
+* Then find the next available block for the FAT and then initialize FAT.
+* Then put in each respective metadata information into the directory entry (file).
+* Then memcpy the directory into the data block, then block_write using 
+* the available block from the FAT with the buffer being the directory.
+*/
 int fs_create(char *fileName){
     string strBuf;
 
@@ -316,9 +330,7 @@ int fs_create(char *fileName){
     fat->file[freeBlock].status = BUSY;
     fat->file[freeBlock].nextBlock = -1;
 
-
     short freeEntry = findAvailableEntry(dir1);
-
 
     puts(" File's Metadata:");
 
@@ -329,12 +341,13 @@ int fs_create(char *fileName){
     printf(" File Size: %d\n", dir1->entry[freeEntry].fileSize);
     
     updateValue(&dir1->entry[freeEntry].beginningIndex, freeBlock);
-    printf(" Starting index: %d\n", dir1->entry[freeEntry].beginningIndex);
+    printf(" Beginning index: %d\n", dir1->entry[freeEntry].beginningIndex);
 
     updateValue(&dir1->entry[freeEntry].type, FILE_TYPE);
-    printf(" Type: %d\n", dir1->entry[freeEntry].type);
+    printf(" File Type: %d\n", dir1->entry[freeEntry].type);
 
     updateValue(&dir1->entry[freeEntry].fileDes, -1);
+    printf(" File Descriptor: %d\n", dir1->entry[freeEntry].fileDes);
     memcpy(&(Data->blocks[peek()]), dir1, sizeof(*dir1));
     char *buf = (char *)dir1;
     block_write((int)freeBlock, buf);
@@ -343,10 +356,10 @@ int fs_create(char *fileName){
     return 0;
 }
 
-
+/*The fs_mkdir function is essentially the same function as fs_create function with the exception of the types
+*/
 int fs_mkdir(char * dirName){
 
-    printf(" Creating directory: %s\n", dirName);
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
 
@@ -357,18 +370,24 @@ int fs_mkdir(char * dirName){
     short freeEntry = findAvailableEntry(dir1);
     
     updateValue(&dir1->entry[freeEntry].fileSize, 0);
+    printf(" Directory Size: %d\n", dir1->entry[freeEntry].fileSize);
     updateValue(&dir1->entry[freeEntry].beginningIndex, freeBlock);
     printf(" Starting Index: %d\n", dir1->entry[freeEntry].beginningIndex);
     updateValue(&dir1->entry[freeEntry].type, DIR_TYPE); //type is 1 which is directory
-    
+    printf(" Dir Type: %d\n", dir1->entry[freeEntry].type);
     
     strncpy(dir1->entry[freeBlock].fileName, dirName, sizeof(dirName));
+    printf(" Dir Name: %s\n", dir1->entry[freeBlock].fileName);
     memcpy(&(Data->blocks[peek()]), dir1, sizeof(*dir1));
     char *buf = (char *)dir1;
     block_write((int)freeBlock, buf);
+    printf(" Creating directory: %s\n", dirName);
     return 0;
 }
 
+/*
+* 
+*/
 int fs_open(char *fileName){
     
     if(fileName == NULL){
