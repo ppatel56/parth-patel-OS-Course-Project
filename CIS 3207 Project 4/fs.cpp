@@ -347,7 +347,7 @@ int fs_create(char *fileName){
     printf(" File Type: %d\n", dir1->entry[freeEntry].type);
 
     updateValue(&dir1->entry[freeEntry].fileDes, -1);
-    printf(" File Descriptor: %d\n", dir1->entry[freeEntry].fileDes);
+    //printf(" File Descriptor: %d\n", dir1->entry[freeEntry].fileDes);
     memcpy(&(Data->blocks[peek()]), dir1, sizeof(*dir1));
     char *buf = (char *)dir1;
     block_write((int)freeBlock, buf);
@@ -569,10 +569,12 @@ void writeForFile(char *fileName){
     fs_write(filedes, buf, len);
 }
 
-/*Set up the directory as usual then 
-* 
-* 
-* 
+/*Set up the directory entry as usual and check the filedes.  
+* The temp buffer is with BLOCK_SIZE + 1 because of offset
+* The FAT, using the entry's index will iterate till -1, and will memset the tempBuf to '\0'
+* Then strcat the '\0' to the buffer, then find the offset and do the same thing with memset with
+* data block section
+* Perform the block read with the starting block and the temp buffer.
 */
 int fs_read(int filedes,void *buf,size_t nbytes){
 
@@ -588,9 +590,9 @@ int fs_read(int filedes,void *buf,size_t nbytes){
     } 
     else {
         char tempBuf[BLOCK_SIZE + 1];
-        char buf[dir1->entry[filedes].fileSize + 1];
-        memset(buf, '\0', sizeof(buf));
-
+        //char buf[dir1->entry[filedes].fileSize + 1];
+        //memset(buf, '\0', sizeof(buf));
+        char buf[nbytes];
         int startBlock = dir1->entry[filedes].beginningIndex;
         
 
@@ -613,7 +615,7 @@ int fs_read(int filedes,void *buf,size_t nbytes){
     memcpy(&(Data->blocks[peek()]), dir1, sizeof(*dir1));
     return 0;
 }
-
+//Helper function to help read from file
 void readFromFile(char *fileName){
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
@@ -737,7 +739,7 @@ char **pathPaser (char *input){
     // allocating space for the tokens and its double pointers because elements in the array are  
     // pointers, the array must be a pointer to a pointer 
     char *token; // represents a token in the array of tokens  
-    token = strtok(input, " /"); // This  -->  " \t\n" represents the whitespaces that are common 
+    token = strtok(input, " /"); // This  -->  " /" represents the path-separator 
     while(token != NULL) {  
         tokens [index] = token; 
         // Maybe check ifthere needs to be a reallocation ifthe bufferSize somehow is less than index. 
