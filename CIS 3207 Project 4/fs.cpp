@@ -115,16 +115,16 @@ void shellPrompt(char *input);
 char **shellParser (char *input);
 char **pathParser(char *input);
 int builtInCommands(char **input);
-
+int changeDirectory(char *directoryName);
 // Directory stack functions - navigating directory entries
-int isEmpty();
-int isFull();
+
+void push(int directoryBlock);
 int peek();
 int pop();
-void push(int directoryBlock);
+
 void printStack();
 int getNumEntries();
-int changeDirectory(char *directoryName);
+
 
 
 //used for the unmount process, it is where the entries are stored

@@ -22,31 +22,100 @@ Implementation:
 
 The project required to make a set of functions to manipulate files and directories on the virtual disk. 
 
-int make_fs(char* disk_name);
+int make_fs(char* disk_name){
+    
+    *In the make_fs() function, the diskName is passed in then is checked if the name is valid
+    * then tries to make_disk and open_disk otherwise return -1.
+    * The first entry in the fat is busy since the root directory is essentially in the block.
+    * The root directory is then given the appropriate metadata.
+    * The memcpy is used to get the address of root to a buffer, then buffer is written to block 0.
+    * The memcpy is used once again to get addeesss of fat to a buffer, then buffer is written to block 1.
+    * Both buffers are then freed.
+}
 
-int mount_fs(char* disk_name);
+int mount_fs(char* disk_name); - Haven't got to it.
 
-int unmount_fs(char* disk_name);
+int unmount_fs(char* disk_name){
 
-int fs_open(char* name);
+    *Currently unsuccessful
 
-int fs_close(int fildes);
+    * Attempt to unmount the file system by storing the metadata to a string then later.
+    * The metadata information in the string is supposed to be split by 1 whitespace ' '.
+    * The entries of the directories were supposed to be split by the '-' character.
+    * Each entry and their respective metadata were supposed to be parsed back into memory once
+    * the mount_fs was called, unfortunately I didn't have time to complete the two functions.
+    * The end result for one entry was supposed to this: -file.txt
+    * Problem may also exist with how the structs are set up
 
-int fs_create(char *name);
+}
 
-int fs_delete(char* name);
+int fs_open(char* name){
 
-int fs_mkdir(char* name);
+    Check if the file name is invalid and return -1 if it is.
+    * Otherwise, set up the directory like usual then iterate through maximum number
+    * of file descriptors till there is one available then if directory entry is doesn't
+    * have a filedes then assign the file descriptor to it and return it.
 
-int fs_read(int fildes, void* buf, size_t nbyte);
+}
 
-int fs_write(int fildes, void* buf, size_t nbyte);
+int fs_close(int fildes){
 
-int fs_get_filesize(int fildes);
+    Basically do the opposite of the fs_open function by setting the directory entry's 
+    * fileDes to -1 and thus closing the file
+}
 
-int fs_lseek(int fildes, off_t offset);
+int fs_create(char *name){
 
-int fs_truncate(int fildes, off_t offset);
+    The fs_create function creates a file. 
+    * The directory is first initialized, then get metadata from the data block using memcpy.
+    * The metadata's address is copied into directory's address.
+    * Then find the next available block for the FAT and then initialize FAT.
+    * Then put in each respective metadata information into the directory entry (file).
+    * Then memcpy the directory into the data block, then block_write using 
+    * the available block from the FAT with the buffer being the directory.
+}
+
+int fs_delete(char* name){
+
+    The set up the directory entry per usual then find the file entry using the helper function
+    * The index should be greater than -1, then get dir entry's index and passed it to the FAT.
+    * While FAT has not reached -1, make each block in FAT empty.
+    * Then update the dir entry to 0 in size and index 
+
+}
+
+int fs_mkdir(char* name){
+    The fs_mkdir function is essentially the same function as fs_create function with the exception of the types
+}
+
+int fs_read(int fildes, void* buf, size_t nbyte){
+    
+    *Set up the directory entry as usual and check the filedes.  
+    * The temp buffer is with BLOCK_SIZE + 1 because of offset
+    * The FAT, using the entry's index will iterate till -1, and will memset the tempBuf to '\0'
+    * Then strcat the '\0' to the buffer, then find the offset and do the same thing with memset with
+    * data block section
+    * Perform the block read with the starting block and the temp buffer.
+}
+
+int fs_write(int fildes, void* buf, size_t nbyte) {
+    *Set up the directory entry as usual then check if the filedes is invalid.
+    * Get the dir entry's index then iterate through the FAT till it reaches -1 and make 
+    * the next block the index each iteration.
+    * Then get the length of buffer that was passed in.
+    * While the buffer length is greater than 0, get the offset of the file and block number
+    * Copy the buffer into the data blocks using strncpy.
+    * Then find the free block and use it to do block_write into the disk the string
+    * Then initialize the FAT
+}
+
+int fs_get_filesize(int fildes) {
+Just set up the directory entry then return the fileDes if it matches the parameter
+}
+
+int fs_lseek(int fildes, off_t offset); - haven't got to it
+
+int fs_truncate(int fildes, off_t offset); - haven't got to it
 
 
 The project required the use of structs, mainly the directory entry and FAT. I ended up with 6 typedef structs such as FAT, Entry, directory,
