@@ -385,7 +385,10 @@ int fs_mkdir(char * dirName){
     return 0;
 }
 
-/*
+/*Check if the file name is invalid and return -1 if it is.
+* Otherwise, set up the directory like usual then iterate through maximum number
+* of file descriptors till there is one available then if directory entry is doesn't
+* have a filedes then assign the file descriptor to it and return it.
 * 
 */
 int fs_open(char *fileName){
@@ -407,7 +410,9 @@ int fs_open(char *fileName){
 
     return -1;
 }
-
+/*Basically do the opposite of the fs_open function by setting the directory entry's 
+* fileDes to -1 and thus closing the file
+*/
 int fs_close(int filedes){
     if(filedes < FIRST_FD || filedes >LAST_FD){
         return -1;
@@ -426,7 +431,8 @@ int fs_close(int filedes){
     return 0;
 }
 
-
+//Just set up the directory entry then return the fileDes if it matches the
+//parameter.
 int fs_get_fileSize(int filedes){
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
@@ -437,13 +443,16 @@ int fs_get_fileSize(int filedes){
     return -1;
 }
 
-
+/*The set up the directory entry per usual then find the file entry using the helper function
+* The index should be greater than -1, then get dir entry's index and passed it to the FAT.
+* While FAT has not reached -1, make each block in FAT empty.
+* Then update the dir entry to 0 in size and index 
+*/
 int fs_delete(char *fileName){
 
     printf(" Deleting directory %s\n", fileName);
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
-
 
     int index = findFileEntry(fileName, dir1);
     if (index == -1){
@@ -472,63 +481,16 @@ int fs_delete(char *fileName){
     return 0;
 }
 
-
-int fs_read(int filedes,void *buf,size_t nbytes){
-
-    //printf(" Reading file %s\n", fileName);
-    directory *dir1 = (directory *)malloc(sizeof(*dir1));
-    memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
-
-
-    //int file = findFileEntry(dir1, fileName);
-    if (filedes == -1){
-        printf(" ERROR: File not found \n");
-
-    } 
-    else {
-        char tempBuf[BLOCK_SIZE + 1];
-        char buf[dir1->entry[filedes].fileSize + 1];
-        memset(buf, '\0', sizeof(buf));
-
-        int startBlock = dir1->entry[filedes].beginningIndex;
-        
-
-
-        while(fat->file[startBlock].nextBlock != -1){
-            memset(tempBuf, '\0', sizeof(tempBuf));
-            memcpy(tempBuf, Data->blocks[startBlock].sect, BLOCK_SIZE);
-            strcat(buf, tempBuf);
-            startBlock = fat->file[startBlock].nextBlock;
-        }
-
-        int offset = findFileOffset(dir1, filedes);
-        memset(tempBuf, '\0', sizeof(tempBuf));
-        memcpy(tempBuf, Data->blocks[startBlock].sect, offset);
-        strcat(buf, tempBuf);
-
-        block_read(startBlock, tempBuf);
-        printf("%s\n", buf);
-    }
-    memcpy(&(Data->blocks[peek()]), dir1, sizeof(*dir1));
-    return 0;
-}
-
-void readFromFile(char *fileName){
-    directory *dir1 = (directory *)malloc(sizeof(*dir1));
-    memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
-    int filedes = findFileEntry(fileName, dir1);
-    
-    char buf[1024] = "";
-    
-    size_t len = strlen(buf);
-    fs_read(filedes, (void *)buf, len);
-}
-
-
-// WRITE DATA TO FILE
+/*Set up the directory entry as usual then check if the filedes is invalid.
+* Get the dir entry's index then iterate through the FAT till it reaches -1 and make 
+* the next block the index each iteration.
+* Then get the length of buffer that was passed in.
+* While the buffer length is greater than 0, get the offset of the file and block number
+* Copy the buffer into the data blocks using strncpy.
+* Then find the free block and use it to do block_write into the disk the string
+* Then initialize the FAT
+*/
 int fs_write(int filedes, void* buf, size_t nbyte){
-
-    //printf(" Writing to file %s...\n", fileName);
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
 
@@ -593,7 +555,7 @@ int fs_write(int filedes, void* buf, size_t nbyte){
 }
 
 
-
+//Helper function to write to the file
 void writeForFile(char *fileName){
     
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
@@ -607,7 +569,66 @@ void writeForFile(char *fileName){
     fs_write(filedes, buf, len);
 }
 
+/*Set up the directory as usual then 
+* 
+* 
+* 
+*/
+int fs_read(int filedes,void *buf,size_t nbytes){
 
+    //printf(" Reading file %s\n", fileName);
+    directory *dir1 = (directory *)malloc(sizeof(*dir1));
+    memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
+
+
+    //int file = findFileEntry(dir1, fileName);
+    if (filedes == -1){
+        printf(" ERROR: File not found \n");
+
+    } 
+    else {
+        char tempBuf[BLOCK_SIZE + 1];
+        char buf[dir1->entry[filedes].fileSize + 1];
+        memset(buf, '\0', sizeof(buf));
+
+        int startBlock = dir1->entry[filedes].beginningIndex;
+        
+
+
+        while(fat->file[startBlock].nextBlock != -1){
+            memset(tempBuf, '\0', sizeof(tempBuf));
+            memcpy(tempBuf, Data->blocks[startBlock].sect, BLOCK_SIZE);
+            strcat(buf, tempBuf);
+            startBlock = fat->file[startBlock].nextBlock;
+        }
+
+        int offset = findFileOffset(dir1, filedes);
+        memset(tempBuf, '\0', sizeof(tempBuf));
+        memcpy(tempBuf, Data->blocks[startBlock].sect, offset);
+        strcat(buf, tempBuf);
+
+        block_read(startBlock, tempBuf);
+        printf("%s\n", buf);
+    }
+    memcpy(&(Data->blocks[peek()]), dir1, sizeof(*dir1));
+    return 0;
+}
+
+void readFromFile(char *fileName){
+    directory *dir1 = (directory *)malloc(sizeof(*dir1));
+    memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
+    int filedes = findFileEntry(fileName, dir1);
+    
+    char buf[1024] = "";
+    
+    size_t len = strlen(buf);
+    fs_read(filedes, (void *)buf, len);
+}
+
+
+// WRITE DATA TO FILE
+
+//return top of the directory stack
 int peek(){
    return directoryStack[topOfStack];
 }
