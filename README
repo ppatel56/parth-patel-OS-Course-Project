@@ -1,0 +1,148 @@
+Parth Patel
+12/05/2019
+CIS 3207 - Section 2
+Project 4 - Simple File System
+
+Introduction:
+
+The goal of the project is to implement a simple file system on top of a virtual disk. The program will use quite a few system calls
+such as open, read, and write.
+
+The virtual disk is actually a single file that is stored on the "real" file system provided by the OS. 
+
+Two files were provided to us to help create, open, close a disk as well as read and write blocks in the virtual disk. The files were
+disk.c and disk.h.
+
+The disk has 16,384 blocks and half of that was for FAT and the other for data section for metadata information. There could only be 256 
+files with each file being only 4096 (4KB).
+
+
+
+Implementation:
+
+The project required to make a set of functions to manipulate files and directories on the virtual disk. 
+
+int make_fs(char* disk_name){
+    
+    *In the make_fs() function, the diskName is passed in then is checked if the name is valid
+    * then tries to make_disk and open_disk otherwise return -1.
+    * The first entry in the fat is busy since the root directory is essentially in the block.
+    * The root directory is then given the appropriate metadata.
+    * The memcpy is used to get the address of root to a buffer, then buffer is written to block 0.
+    * The memcpy is used once again to get addeesss of fat to a buffer, then buffer is written to block 1.
+    * Both buffers are then freed.
+}
+
+int mount_fs(char* disk_name); - Haven't got to it.
+
+int unmount_fs(char* disk_name){
+
+    *Currently unsuccessful
+
+    * Attempt to unmount the file system by storing the metadata to a string then later.
+    * The metadata information in the string is supposed to be split by 1 whitespace ' '.
+    * The entries of the directories were supposed to be split by the '-' character.
+    * Each entry and their respective metadata were supposed to be parsed back into memory once
+    * the mount_fs was called, unfortunately I didn't have time to complete the two functions.
+    * The end result for one entry was supposed to this: -file.txt
+    * Problem may also exist with how the structs are set up
+
+}
+
+int fs_open(char* name){
+
+    Check if the file name is invalid and return -1 if it is.
+    * Otherwise, set up the directory like usual then iterate through maximum number
+    * of file descriptors till there is one available then if directory entry is doesn't
+    * have a filedes then assign the file descriptor to it and return it.
+
+}
+
+int fs_close(int fildes){
+
+    Basically do the opposite of the fs_open function by setting the directory entry's 
+    * fileDes to -1 and thus closing the file
+}
+
+int fs_create(char *name){
+
+    The fs_create function creates a file. 
+    * The directory is first initialized, then get metadata from the data block using memcpy.
+    * The metadata's address is copied into directory's address.
+    * Then find the next available block for the FAT and then initialize FAT.
+    * Then put in each respective metadata information into the directory entry (file).
+    * Then memcpy the directory into the data block, then block_write using 
+    * the available block from the FAT with the buffer being the directory.
+}
+
+int fs_delete(char* name){
+
+    The set up the directory entry per usual then find the file entry using the helper function
+    * The index should be greater than -1, then get dir entry's index and passed it to the FAT.
+    * While FAT has not reached -1, make each block in FAT empty.
+    * Then update the dir entry to 0 in size and index 
+
+}
+
+int fs_mkdir(char* name){
+    The fs_mkdir function is essentially the same function as fs_create function with the exception of the types
+}
+
+int fs_read(int fildes, void* buf, size_t nbyte){
+    
+    *Set up the directory entry as usual and check the filedes.  
+    * The temp buffer is with BLOCK_SIZE + 1 because of offset
+    * The FAT, using the entry's index will iterate till -1, and will memset the tempBuf to '\0'
+    * Then strcat the '\0' to the buffer, then find the offset and do the same thing with memset with
+    * data block section
+    * Perform the block read with the starting block and the temp buffer.
+}
+
+int fs_write(int fildes, void* buf, size_t nbyte) {
+    *Set up the directory entry as usual then check if the filedes is invalid.
+    * Get the dir entry's index then iterate through the FAT till it reaches -1 and make 
+    * the next block the index each iteration.
+    * Then get the length of buffer that was passed in.
+    * While the buffer length is greater than 0, get the offset of the file and block number
+    * Copy the buffer into the data blocks using strncpy.
+    * Then find the free block and use it to do block_write into the disk the string
+    * Then initialize the FAT
+}
+
+int fs_get_filesize(int fildes) {
+Just set up the directory entry then return the fileDes if it matches the parameter
+}
+
+int fs_lseek(int fildes, off_t offset); - haven't got to it
+
+int fs_truncate(int fildes, off_t offset); - haven't got to it
+
+
+The project required the use of structs, mainly the directory entry and FAT. I ended up with 6 typedef structs such as FAT, Entry, directory,
+fileEntry, dataBlocks, and DATA. 
+
+The FAT struct contained the fileEntry array so each file entry would be kept tracked by the FAT, and the fileEntry only contained status and
+next block. The Entry had the metadata information of the directory entry such as name or file size. The directory struct contained an array
+of Entries. The dataBlock was an array of section and the DATA was an array of dataBlock.
+
+
+Testing:
+The testing processes involved getting used to the structs and see what stuff works with regards to how to manipulate the files. There were
+some revisions with the struct in order to make sense of what was going on with the project. Then there was spending some time trying to get 
+used to using the disk.c functions especially the block_read and block_write functions. The fs_write and fs_read were pretty difficult to 
+make since the functions were about determining the size of the buffers that were passed into the functions, and also trying to block_write
+or block_read the functions were very difficult. At times the fs_write would write the error message into the disk, thus filling up quite a few
+space. Most of the other functions were a bit easier such as creating file/directory as most would use the same approach. It was a matter of 
+getting to understand the struct Implementation.
+
+There were also many helper functions used to get the available free blocks in the FAT, find a file entry, find available entries, get the offset
+of the file. I also had a change directory function since I imported functions from myshell.c such as the paraser function, shell prompt,
+buitInCommand. There was also a directory stack for the change directory function and also had the typical stack functions made.
+
+
+Problems:
+The main problems that I have occured are the mount_fs and unmount_fs functions. I haven't done the mount_fs functions due time and also 
+becuase of the way that my structs are implemente, it's more difficult or confusing to unmount_fs as I don't know how to properly unmount_fs the 
+file system due the directory entries being limited by MAX_ENTRIES. I tried to store the metadata of directory entry into a C++ string and then
+wanted to parse the metadata approriately and put them into the mount_fs. I also don't have fs_lseek and fs_truncate since I didn't have the
+time to work on them or to properly understand how they worked.
