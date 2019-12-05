@@ -381,9 +381,7 @@ int fs_close(int filedes){
     if(filedes < FIRST_FD || filedes >LAST_FD){
         return -1;
     }
-    if(filedes == NULL){
-        return -1;
-    }
+    
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
     memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
 
@@ -400,7 +398,12 @@ int fs_close(int filedes){
 
 int fs_get_fileSize(int filedes){
     directory *dir1 = (directory *)malloc(sizeof(*dir1));
-    return 0;
+    memcpy(dir1, &(Data->blocks[peek()]), sizeof(*dir1));
+    if(dir1->entry->fileDes== filedes){
+        printf("fileSize: %d\n", dir1->entry->fileSize);
+        return 0;
+    }
+    return -1;
 }
 
 
